@@ -1,0 +1,17 @@
+{
+  "name": "wielka-hossa",
+  "version": "0.1.0",
+  "description": "Wielka Hossa — przeglądarkowa gra ekonomiczna: zbuduj imperium od pierwszego sklepu po giełdę.",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "start": "node scripts/serve.mjs",
+    "test": "node --test tests/",
+    "sim": "node scripts/simulate.mjs",
+    "check": "node scripts/check-content.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "license": "MIT"
+}
