@@ -3,8 +3,8 @@
 // define the daily pipeline:
 //
 //   world(5) → companies(8) → economy(10) → worldEvents(20) → construction(30)
-//   → production(40) → supply(50) → retail(60) → finance(70) → brand(72)
-//   → research(74) → stocks(80) → [ai(90)] → goals(95)
+//   → production(40) → supply(50) → retail(60) → brand(66) → research(68)
+//   → finance(70) → stocks(80) → [ai(90)] → goals(95)
 
 import { BALANCE } from './balance.js';
 import { worldSystem } from './world.js';

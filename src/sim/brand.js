@@ -56,7 +56,7 @@ function runMonthly(game) {
 
 export const brandSystem = {
   id: 'brand',
-  order: 72,
+  order: 66, // before finance, so the spend lands in the month it belongs to
   monthly: runMonthly,
 };
 

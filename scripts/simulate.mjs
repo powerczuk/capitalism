@@ -10,6 +10,7 @@
 //   --personas a,b personality of each company (default: random)
 //   --cities N     number of cities (default 4)
 //   --runs N       repeat with different seeds and print averages
+//   --no-takeovers disable hostile takeovers
 //   --quiet        only the final table
 //   --log          print every AI command (very verbose)
 //   --pnl          also print each company's income statement of the last 12 months
@@ -103,6 +104,7 @@ function runOnce(seed, verbose) {
     cityCount: Number(args.cities ?? 4),
     player: null,
     rivals: levels.map((level, i) => ({ level, persona: personas[i] ?? 'random' })),
+    takeovers: !args['no-takeovers'],
   });
   if (args.log) game.aiLog = [];
   const t0 = Date.now();

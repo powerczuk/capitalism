@@ -40,7 +40,7 @@ function runMonthly(game) {
 
 export const researchSystem = {
   id: 'research',
-  order: 74,
+  order: 68, // before finance closes the month
   monthly: runMonthly,
 };
 
