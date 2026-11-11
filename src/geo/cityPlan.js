@@ -49,13 +49,18 @@ function rng(seed) {
   };
 }
 
-const ringOf = (district) => district.ring ?? RING[district.id] ?? 'outer';
+const RINGS = new Set(['core', 'inner', 'outer', 'sector', 'country']);
+/** Where a district lies: what it says (if that is a ring the plan knows), else what the base game's districts are, else the outer ring. */
+const ringOf = (district) => (RINGS.has(district.ring) ? district.ring : RING[district.id] ?? 'outer');
 
-/** Population the plan is sized for: the top of the archetype's range. */
+/**
+ * Population the plan is sized for: the top of the archetype's range. A city
+ * whose archetype is not in the game any more gets the plan of a big city,
+ * whatever its population: the plan must not change as the city grows.
+ */
 function sizePop(content, city) {
   const arch = content.cityArchetypes.find(city.arch);
-  if (arch?.pop) return arch.pop[1];
-  return 2 ** Math.ceil(Math.log2(Math.max(100_000, city.pop))); // unknown archetype: a stable bucket
+  return arch?.pop ? arch.pop[1] : 2_000_000;
 }
 
 /** How many plots of each district the plan keeps room for. */
@@ -132,8 +137,11 @@ export function cityPlan(content, city, opts = {}) {
   const need = want.core + want.inner + want.outer + want.sector;
   const hasCoast = !!city.port;
   const hasRiver = !hasCoast && rand() < 0.6;
+  // The grid grows with what has to fit, up to 19 × 19 blocks. Content that
+  // asks for more plots than that holds (or more country plots than two rings
+  // round the town) gets the rest in a row at the edge of the map: see `short`.
   let n = 7;
-  while (n < 15 && n * n - 4 - (hasRiver ? n : 0) < need + 2) n += 2;
+  while (n < 19 && n * n - 4 - (hasRiver ? n : 0) < need + 2) n += 2;
   const c = (n - 1) / 2;
   const half = (n * P + GRID.road) / 2; // from the centre to the outer edge of the outermost street
   const size = half + 38;
@@ -568,6 +576,8 @@ export function cityPlan(content, city, opts = {}) {
     half,
     size,
     rings: Object.fromEntries(districts.map((d) => [d.id, ringOf(d)])),
+    // plots the plan could not place, by district (only content far from the base game's has any)
+    short: Object.fromEntries(districts.map((d) => [d.id, Math.max(0, caps[d.id] - (lots[d.id]?.length ?? 0))]).filter(([, missing]) => missing > 0)),
     coast,
     river,
     port,

@@ -91,6 +91,49 @@ test('build: every building gets a numbered plot of its district', () => {
   assert.deepEqual(lots, [0, 1, 2]);
 });
 
+test('build: no two buildings ever share a plot', () => {
+  const lotsIn = (g, district) =>
+    Object.values(g.state.buildings)
+      .filter((b) => b.district === district)
+      .sort((a, b) => a.built - b.built || a.no - b.no)
+      .map((b) => b.lot);
+
+  // A building without a plot number (made by older code or by a mod) is
+  // numbered when the next one is built — and the plot that was asked for,
+  // free when the command was checked, may be the very one it gets.
+  {
+    const { game, me, city } = newGame();
+    me.cash = 1e9;
+    const old = game.exec(me.id, 'build', { type: 'supermarket', city: city.id, district: 'suburb' }).building;
+    delete game.state.buildings[old].lot;
+    const params = { type: 'supermarket', city: city.id, district: 'suburb', lot: 0 };
+    assert.equal(game.can(me.id, 'build', params).ok, true, 'plot 0 looks free');
+    const next = game.exec(me.id, 'build', params);
+    assert.ok(next.ok);
+    assert.deepEqual(lotsIn(game, 'suburb'), [0, 1], 'the old building keeps plot 0, the new one takes the next');
+  }
+
+  // A save in which two buildings claim one plot: the older keeps it, and
+  // afterwards the district's count of free plots is true again.
+  {
+    const { game, me, city } = newGame();
+    me.cash = 1e9;
+    for (let i = 0; i < 3; i++) {
+      game.exec(me.id, 'build', { type: 'supermarket', city: city.id, district: 'suburb' });
+      game.tick();
+    }
+    const data = JSON.parse(JSON.stringify(game.save()));
+    for (const b of Object.values(data.state.buildings)) b.lot = 1;
+    const loaded = Game.load(content, data);
+    assert.deepEqual(lotsIn(loaded, 'suburb'), [1, 0, 2], 'the oldest keeps plot 1, the others move to free plots');
+    const free = freePlots(loaded, loaded.state.cities[city.id], 'suburb');
+    const taken = new Set(lotsIn(loaded, 'suburb'));
+    let open = 0;
+    for (let lot = 0; lot < plotsOf(content, city, 'suburb'); lot++) if (!taken.has(lot)) open++;
+    assert.equal(open, free, 'as many plots are open as the rules say are free');
+  }
+});
+
 test('retail: shelves validate products and sell once the store opens', () => {
   const { game, me, city } = newGame();
   const store = game.exec(me.id, 'build', { type: 'supermarket', city: city.id, district: 'residential' }).building;

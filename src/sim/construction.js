@@ -79,12 +79,29 @@ export function firstFreeLot(game, cityId, districtId) {
   return lot;
 }
 
-/** Number the plots of buildings that have none (games saved before plots were numbered). */
+/**
+ * Give every building a plot of its own: number the plots of buildings that
+ * have none (games saved before plots were numbered), and move the later of
+ * two buildings that claim the same plot (a save edited by hand).
+ */
 export function ensureLots(game) {
-  const missing = Object.values(game.state.buildings).filter((b) => !Number.isInteger(b.lot));
-  if (!missing.length) return;
   const order = (b) => Number(String(b.id).replace(/\D+/g, '')) || 0;
-  missing.sort((a, b) => a.built - b.built || order(a) - order(b));
+  const byAge = (a, b) => a.built - b.built || order(a) - order(b);
+  const all = Object.values(game.state.buildings);
+  const claimed = new Set();
+  let doubled = false;
+  for (const b of [...all].sort(byAge)) {
+    if (!Number.isInteger(b.lot) || b.lot < 0) continue;
+    const key = `${b.city}|${b.district}|${b.lot}`;
+    if (claimed.has(key)) {
+      b.lot = null; // the older building keeps the plot
+      doubled = true;
+    } else claimed.add(key);
+  }
+  const missing = all.filter((b) => !Number.isInteger(b.lot) || b.lot < 0);
+  if (!missing.length) return;
+  if (doubled) game.invalidate?.();
+  missing.sort(byAge);
   const byDistrict = new Map();
   for (const b of missing) {
     const key = `${b.city}|${b.district}`;
@@ -136,6 +153,9 @@ export const constructionCommands = [
       const cost = buildCost(game, type, city, district);
       co.cash -= cost;
       ensureLots(game);
+      // The plot asked for was free when the command was checked; if numbering
+      // old buildings has just put one of them on it, the best free plot is taken.
+      const plot = lot != null && !takenLots(game, city.id, district).has(lot) ? lot : firstFreeLot(game, city.id, district);
       const b = {
         id: game.newId('b'),
         type: type.id,
@@ -143,7 +163,7 @@ export const constructionCommands = [
         co: co.id,
         city: city.id,
         district,
-        lot: lot ?? firstFreeLot(game, city.id, district), // plot number within the district
+        lot: plot, // plot number within the district
         level: 1,
         name: null, // null = default name "<type> <city> #no"
         no: ++co.seq,

@@ -87,6 +87,7 @@ export class CityScene {
     this.showLots = false;
     this.markers = {}; // frames round what is hovered and what is selected
     this.canBuild = !!game.human; // free plots can be clicked only where there is someone to build
+    this.failed = new Set(); // building types whose model threw (reported once each)
     this._traffic(game);
     this._smoke();
     this.sync(game);
@@ -277,9 +278,19 @@ export class CityScene {
     const type = this.content.buildingTypes.find(b.type) ?? { id: b.type, kind: b.kind };
     const color = companyColor(owner?.color ?? 0);
     const site = stage.startsWith('site');
-    const model = site
-      ? buildModel('site', { color, lot, seed: `${this.seed}|${b.id}`, progress: SITE_STEPS[Number(stage.slice(4))] })
-      : buildModel(type, { level: b.level, color, lot, seed: `${this.seed}|${b.id}` });
+    const seed = `${this.seed}|${b.id}`;
+    let model;
+    try {
+      model = site ? buildModel('site', { color, lot, seed, progress: SITE_STEPS[Number(stage.slice(4))] }) : buildModel(type, { level: b.level, color, lot, seed });
+    } catch (error) {
+      // A model that cannot be drawn (a mod's, most likely) must not take the
+      // city with it: a plain building stands in, and the console says why.
+      if (!this.failed.has(type.id)) {
+        this.failed.add(type.id);
+        console.warn(`The 3D model of "${site ? 'site' : type.id}" failed; a plain building stands in for it.`, error);
+      }
+      model = buildModel('kind:generic', { level: b.level, color, lot, seed });
+    }
     const node = groupOf(model.geometries, this.materials);
     let height = model.geometries.solid?.boundingBox.max.y ?? 1;
     if (stage === 'up') {

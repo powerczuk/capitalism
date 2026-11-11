@@ -40,6 +40,19 @@ export class CountryScene {
     this.cities = game.cities();
     this.radius = (city) => 2.6 + Math.sqrt(city.pop / 1e6) * 3.6;
     this.coastZ = -this.h / 2 + 70 * K;
+    // How much of the country should fit across the view: all its cities, as
+    // the camera sees them (it looks along a diagonal) — with room for their
+    // names. On a narrow screen the world shows the country from further away.
+    const across = this.cities.map((city) => {
+      const p = this.at(city);
+      return (p.x - p.z) * Math.SQRT1_2;
+    });
+    this.span = Math.max(...across) - Math.min(...across) + 34;
+    // …and the middle of it is what the camera looks at
+    const xs = this.cities.map((city) => this.at(city).x);
+    const zs = this.cities.map((city) => this.at(city).z);
+    this.view.x = (Math.min(...xs) + Math.max(...xs)) / 2;
+    this.view.z = (Math.min(...zs) + Math.max(...zs)) / 2;
 
     this._land();
     this.townsKey = '';

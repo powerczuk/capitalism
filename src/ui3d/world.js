@@ -50,16 +50,26 @@ class World {
     this.pace = 0;
     this.labels = new Map();
 
-    // A name can be clicked (or reached with Tab) like the thing it names.
+    // A name over the map stands for the thing it names. The names let the
+    // pointer through (so the map can be dragged and zoomed anywhere) and are
+    // found by where a click lands; with the keyboard they are buttons.
     this.overlay.addEventListener('click', (event) => {
       const el = event.target.closest('.world-label');
       const pick = el && this.labels.get(el.dataset.id)?.at.pick;
       if (pick) this.onPick(pick);
     });
-    this.stage.on('pick', (target) => this.onPick(target));
+    this.stage.on('pick', (target, at) => this.onPick(this.labelAt(at)?.at.pick ?? target));
     this.stage.on('hover', (target, at) => this.onHover(target, at));
     this.stage.on('frame', (dt) => {
-      this.current?.update?.(dt, this.pace);
+      try {
+        this.current?.update?.(dt, this.pace);
+      } catch (error) {
+        // what moves is decoration: if it fails, the picture stays still
+        console.error(error);
+        this.pace = 0;
+        this.frozen = true;
+        this.stage.setAnimating(false);
+      }
       this.placeLabels();
     });
   }
@@ -91,8 +101,9 @@ class World {
     this.stage.show(null);
   }
 
+  /** Keep the camera of the scene on show — where it is going, if it is on its way. */
   remember() {
-    if (this.key !== undefined && this.current) this.views.set(this.key, { ...this.stage.view });
+    if (this.key !== undefined && this.current) this.views.set(this.key, this.stage.destination);
   }
 
   // --- keeping in step with the app ---------------------------------------------------
@@ -130,7 +141,7 @@ class World {
           ? { kind: 'building', id: panel.id }
           : null;
     if (scene.mark?.('selected', selected)) this.stage.invalidate();
-    this.pace = reducedMotion() ? 0 : PACE[app.ui.speed] ?? 0;
+    this.pace = reducedMotion() || this.frozen ? 0 : PACE[app.ui.speed] ?? 0;
     this.stage.setAnimating(this.pace > 0 && !app.ui.modal);
     this.refreshLabels();
     this.placeLabels();
@@ -138,6 +149,9 @@ class World {
 
   open(key, cityId) {
     this.remember();
+    // nothing of the scene that leaves may linger: the tip, the frame under the pointer
+    this.tip.hidden = true;
+    this.current?.mark?.('hover', null);
     const game = this.game;
     let scene = this.scenes.get(key);
     if (!scene) {
@@ -149,17 +163,42 @@ class World {
     const from = this.key;
     this.key = key;
     this.current = scene;
+    this.frozen = false;
+    const hadFocus = this.host.contains(document.activeElement);
     this.clearLabels();
-    const view = this.views.get(key) ?? scene.view;
-    this.stage.show(scene.group, { pickables: scene.pickables, blocker: scene.blocker, bounds: scene.bounds, view });
+    // A scene that says how much of it should fit across the view (`span`) is
+    // shown from further away on a narrow screen, and may be zoomed out as far.
+    const aspect = this.stage.width / Math.max(1, this.stage.height);
+    const fitted = scene.span ? Math.max(scene.view.zoom, scene.span / aspect) : scene.view.zoom;
+    const bounds = { ...scene.bounds, maxZoom: Math.max(scene.bounds.maxZoom, fitted * 1.15) };
+    const view = this.views.get(key) ?? { ...scene.view, zoom: fitted };
+    this.stage.show(scene.group, { pickables: scene.pickables, blocker: scene.blocker, bounds, view });
     // arriving in a city from the map of the country: come down from above
     if (cityId && from === 'country' && !this.views.has(key)) {
-      this.stage.view.zoom = Math.min(scene.bounds.maxZoom, view.zoom * 2.2);
+      this.stage.view.zoom = Math.min(bounds.maxZoom, view.zoom * 2.2);
       this.stage.flyTo({ zoom: view.zoom }, 650);
     }
+    // The name or button that brought the player here is gone with the old
+    // scene: the keyboard carries on from the map itself.
+    const active = document.activeElement;
+    if (hadFocus || !active || active === document.body) this.stage.canvas.focus({ preventScroll: true });
   }
 
   // --- what the player does ----------------------------------------------------------------
+
+  /** The name over the map that lies under a point of the canvas, if any. */
+  labelAt(at) {
+    if (!at || !this.labels.size) return null;
+    const host = this.host.getBoundingClientRect();
+    const x = host.left + at.x;
+    const y = host.top + at.y;
+    for (const label of this.labels.values()) {
+      if (label.off || !label.at.pick) continue;
+      const r = label.el.getBoundingClientRect();
+      if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) return label;
+    }
+    return null;
+  }
 
   onPick(target) {
     const app = this.app;
@@ -187,15 +226,31 @@ class World {
   }
 
   onHover(target, at) {
+    // a name under the pointer stands for what it names (and needs no tip: it is the name)
+    const label = at.x >= 0 ? this.labelAt(at) : null;
+    if (label !== this.hot) {
+      this.hot?.el.classList.remove('hot');
+      label?.el.classList.add('hot');
+      this.hot = label;
+    }
+    if (label) {
+      target = label.at.pick;
+      this.stage.canvas.style.cursor = 'pointer';
+    }
     if (this.current?.mark?.('hover', target)) this.stage.invalidate();
-    const text = target ? this.app?.describePick?.(target) : null;
+    const text = target && !label ? this.app?.describePick?.(target) : null;
     if (!text) {
       this.tip.hidden = true;
       return;
     }
-    this.tip.textContent = text;
+    if (this.tip.textContent !== text) this.tip.textContent = text;
     this.tip.hidden = false;
-    this.tip.style.transform = `translate(${Math.round(at.x + 14)}px, ${Math.round(at.y + 16)}px)`;
+    // below and to the right of the pointer — or on the other side where the edge is near
+    const w = this.tip.offsetWidth;
+    const h = this.tip.offsetHeight;
+    const x = at.x + 14 + w > this.stage.width - 4 ? at.x - 12 - w : at.x + 14;
+    const y = at.y + 18 + h > this.stage.height - 4 ? at.y - 10 - h : at.y + 18;
+    this.tip.style.transform = `translate(${Math.round(Math.max(4, x))}px, ${Math.round(Math.max(4, y))}px)`;
   }
 
   // --- labels -----------------------------------------------------------------------------------
@@ -203,6 +258,7 @@ class World {
   clearLabels() {
     this.overlay.textContent = '';
     this.labels.clear();
+    this.hot = null;
   }
 
   /** Labels are plain HTML laid over the canvas: sharp text at any zoom. */
@@ -234,6 +290,7 @@ class World {
     }
     for (const [id, label] of this.labels) {
       if (seen.has(id)) continue;
+      if (label === this.hot) this.hot = null;
       label.el.remove();
       this.labels.delete(id);
     }

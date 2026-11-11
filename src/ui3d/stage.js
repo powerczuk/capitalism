@@ -39,16 +39,20 @@ export const GLOW_LAYER = 1;
 const clamp = (x, lo, hi) => (x < lo ? lo : x > hi ? hi : x);
 const ease = (t) => (t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2);
 
-/** Materials shared by every model (see the layers in kit.js). */
 // Where drawing is done by the processor (no graphics card, or a blocked
 // one) the page keeps stalling while the picture is being made. Moving
 // traffic is not worth that: when, two spells in a row, more than a third of
 // the time goes into frames that took over a tenth of a second, the stage
-// stops animating and draws only when something changes.
+// stops animating and draws only when something changes. It tries again
+// after a while (the machine may only have been busy), ever less often.
 const PACE_SPELL_MS = 1500;
+
+/** A rotation as one of the four quarters (0–3). */
+const quarter = (rot) => ((Math.round(rot) % 4) + 4) % 4;
 const PACE_LONG_MS = 100;
 const PACE_LONG_SHARE = 0.35;
 
+/** Materials shared by every model (see the layers in kit.js). */
 export function createMaterials() {
   return {
     solid: new MeshStandardMaterial({ vertexColors: true, roughness: 0.94, metalness: 0 }),
@@ -126,7 +130,8 @@ export class Stage {
     this.blocker = null;
     this.mode = 'day';
     this.animating = false;
-    this.still = false; // too slow to animate (see PACE_LONG_SHARE); a new scene gets a new chance
+    this.still = false; // too slow to animate (see PACE_LONG_SHARE); it tries again after a while
+    this.stillUntil = 0;
     this.pace = { ms: 0, long: 0, strikes: 0 };
     this.dirty = true;
     this.shadowAt = { x: Infinity, z: Infinity, zoom: 0 };
@@ -174,7 +179,7 @@ export class Stage {
     if (opts.view) Object.assign(this.view, opts.view);
     this.tween = null;
     this.hovered = null;
-    this.still = false;
+    this.canvas.style.cursor = '';
     this.pace = { ms: 0, long: 0, strikes: 0 };
     this._clampView();
     this.invalidate(true);
@@ -283,7 +288,7 @@ export class Stage {
     const fz = -Math.cos(a);
     this.view.x += -dx * k * rx + (dy * k * fx) / SIN_E;
     this.view.z += -dx * k * rz + (dy * k * fz) / SIN_E;
-    this.tween = null;
+    this._settle();
     this._clampView();
     this.invalidate();
     this._emit('view');
@@ -291,16 +296,36 @@ export class Stage {
 
   /** Zoom by `factor` (>1 = out), keeping the ground under (px, py) in place. */
   zoomBy(factor, px = this.width / 2, py = this.height / 2) {
+    this._settle();
+    // the camera as the view stands now, not as it was last drawn: two fingers
+    // both move within one frame, and each move builds on the one before
+    this._placeCamera();
     const before = this.groundAt(px, py);
     this.view.zoom = clamp(this.view.zoom * factor, this.limits.minZoom, this.limits.maxZoom);
     this._placeCamera();
     const after = this.groundAt(px, py);
     this.view.x += before.x - after.x;
     this.view.z += before.z - after.z;
-    this.tween = null;
     this._clampView();
     this.invalidate();
     this._emit('view');
+  }
+
+  /**
+   * Stop a flight where it is — except a turn, which is finished at once: the
+   * view only ever rests on a quarter.
+   */
+  _settle() {
+    if (!this.tween) return;
+    this.view.rot = quarter(this.tween.to.rot);
+    this.tween = null;
+  }
+
+  /** Where the view is, or — while the camera is on its way — where it is going. */
+  get destination() {
+    const view = { ...this.view, ...(this.tween?.to ?? {}) };
+    view.rot = quarter(view.rot);
+    return view;
   }
 
   /** Turn by quarter steps (+1 = clockwise), animated. */
@@ -317,7 +342,7 @@ export class Stage {
   /** Glide to a view; any of x, z, zoom, rot may be given. */
   flyTo(target, ms = 600) {
     const from = { ...this.view };
-    const to = { ...from, ...target };
+    const to = { ...from, ...(this.tween?.to ?? {}), ...target }; // a flight under way keeps its goal
     if (ms <= 0 || matchMedia('(prefers-reduced-motion: reduce)').matches) {
       Object.assign(this.view, to);
       this.tween = null;
@@ -369,8 +394,12 @@ export class Stage {
   _bind() {
     const el = this.canvas;
     const pointers = new Map();
-    let moved = 0;
+    let moved = 0; // how far the pointer has got from where it went down
+    let dragging = false;
+    let press = null;
     let pinch = 0;
+    // A press that stays within this many pixels is a click; fingers are less steady than a mouse.
+    const slack = (e) => (e.pointerType === 'mouse' ? 6 : 10);
     const local = (e) => {
       const r = el.getBoundingClientRect();
       return { x: e.clientX - r.left, y: e.clientY - r.top };
@@ -380,7 +409,11 @@ export class Stage {
       if (e.button > 1) return;
       el.setPointerCapture(e.pointerId);
       pointers.set(e.pointerId, local(e));
-      if (pointers.size === 1) moved = 0;
+      if (pointers.size === 1) {
+        moved = 0;
+        dragging = false;
+        press = local(e);
+      }
       if (pointers.size === 2) {
         const [a, b] = [...pointers.values()];
         pinch = Math.hypot(a.x - b.x, a.y - b.y);
@@ -395,19 +428,19 @@ export class Stage {
       }
       pointers.set(e.pointerId, p);
       if (pointers.size === 1) {
-        const dx = p.x - prev.x;
-        const dy = p.y - prev.y;
-        moved += Math.abs(dx) + Math.abs(dy);
-        if (moved > 5) {
-          this.panBy(dx, dy);
+        moved = Math.max(moved, Math.hypot(p.x - press.x, p.y - press.y));
+        if (!dragging && moved > slack(e)) {
+          dragging = true;
           el.classList.add('dragging');
-        }
+          this.panBy(p.x - press.x, p.y - press.y); // catch up with the pointer
+        } else if (dragging) this.panBy(p.x - prev.x, p.y - prev.y);
       } else if (pointers.size === 2) {
         const [a, b] = [...pointers.values()];
         const dist = Math.hypot(a.x - b.x, a.y - b.y);
         if (pinch > 0 && dist > 0) this.zoomBy(pinch / dist, (a.x + b.x) / 2, (a.y + b.y) / 2);
         pinch = dist;
-        moved += 10;
+        moved = Infinity; // two fingers are never a click
+        dragging = true;
       }
     });
     const up = (e) => {
@@ -415,7 +448,7 @@ export class Stage {
       const p = pointers.get(e.pointerId);
       pointers.delete(e.pointerId);
       el.classList.remove('dragging');
-      if (pointers.size === 0 && moved <= 5 && e.type === 'pointerup') this._emit('pick', this.pick(p.x, p.y), { x: p.x, y: p.y, event: e });
+      if (pointers.size === 0 && !dragging && e.type === 'pointerup') this._emit('pick', this.pick(p.x, p.y), { x: p.x, y: p.y, event: e });
       if (pointers.size < 2) pinch = 0;
     };
     el.addEventListener('pointerup', up);
@@ -444,19 +477,21 @@ export class Stage {
         q: () => this.rotate(-1),
         e: () => this.rotate(1),
       };
-      const run = keys[e.key];
+      if (e.ctrlKey || e.metaKey || e.altKey) return; // the browser's own shortcuts
+      const run = keys[e.key.length === 1 ? e.key.toLowerCase() : e.key];
       if (!run) return;
       e.preventDefault();
       e.stopPropagation();
       run();
     });
+    // A graphics context that was lost and came back has nothing drawn in it.
+    el.addEventListener('webglcontextrestored', () => this.invalidate(true));
     this.observer = new ResizeObserver(() => this.resize());
     this.observer.observe(this.container);
   }
 
   _hover(px, py, event) {
     const target = px < 0 ? null : this.pick(px, py);
-    if (target === this.hovered && !target) return;
     this.hovered = target;
     this.canvas.style.cursor = target ? 'pointer' : '';
     this._emit('hover', target, { x: px, y: py, event });
@@ -490,6 +525,9 @@ export class Stage {
     pace.long = 0;
     if (pace.strikes >= 2) {
       this.still = true;
+      // try again later — the machine may only have been busy — but ever less often
+      this.stillFor = Math.min(600_000, (this.stillFor ?? 30_000) * 2);
+      this.stillUntil = performance.now() + this.stillFor;
       this._emit('still');
     }
   }
@@ -507,12 +545,16 @@ export class Stage {
       const k = ease(t);
       for (const key of ['x', 'z', 'zoom', 'rot']) this.view[key] = from[key] + (to[key] - from[key]) * k;
       if (t >= 1) {
-        this.view.rot = ((Math.round(to.rot) % 4) + 4) % 4;
+        this.view.rot = quarter(to.rot);
         this.tween = null;
       }
       this._clampView();
       this.dirty = true;
       this._emit('view');
+    }
+    if (this.still && now > this.stillUntil) {
+      this.still = false;
+      this.pace = { ms: 0, long: 0, strikes: 0 };
     }
     const moving = this.animating && !this.still;
     if (moving) {

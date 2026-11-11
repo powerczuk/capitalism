@@ -347,8 +347,9 @@ function solidButton(app) {
   return html`<button type="button" class="btn btn-sm" data-act="worldSolid">${icon('cube', 16)}<span>${t('world.solid')}</span></button>`;
 }
 
-const tool = (name, act, label, data = '', on = false) =>
-  html`<button type="button" class="tool ${on ? 'on' : ''}" data-act="${act}"${raw(data)} title="${label}" aria-label="${label}"${raw(on ? ' aria-pressed="true"' : '')}>${icon(name, 20)}</button>`;
+/** A button of the map's toolbar. `on` (true or false) makes it a toggle; leave it out for a plain button. */
+const tool = (name, act, label, data = '', on = null) =>
+  html`<button type="button" class="tool ${on ? 'on' : ''}" data-act="${act}"${raw(data)} title="${label}" aria-label="${label}"${raw(on == null ? '' : ` aria-pressed="${!!on}"`)}>${icon(name, 20)}</button>`;
 
 /** What stands on a plot the player looked at but does not own. */
 function infoCard(app, id) {
@@ -557,10 +558,14 @@ export const mapActions = {
     app.world3d?.zoom(Number(d.factor));
   },
   worldDetails(app) {
-    app.ui.world.details = !app.ui.world.details;
+    const w = app.ui.world;
+    w.details = !w.details;
+    if (w.details) w.info = null; // the drawer says more than the card, and on a phone there is room for one
+    else app.focusAfterRender('.world-tools [data-act=worldDetails]'); // its close button is gone
   },
   worldInfoClose(app) {
     app.ui.world.info = null;
+    app.focusAfterRender('.world-gl');
   },
   worldFlat(app) {
     app.prefs.map3d = false;
@@ -594,12 +599,30 @@ registerWidget('world3d', (element, app) => {
     })
     .catch((error) => {
       console.warn('The 3D view could not start:', error);
+      world?.detach();
+      world = null;
       app.no3d = true;
       app.toast(t('world.unavailable'), 'warn');
     });
+  // Whatever goes wrong in the 3D world (a mod's model, a lost graphics
+  // context) must not end the game: the flat map takes over.
+  const giveUp = (error) => {
+    console.warn('The 3D view could not carry on:', error);
+    world?.detach();
+    world = null;
+    app.no3d = true;
+    app.toast(t('world.unavailable'), 'warn');
+  };
   return {
     update(current) {
-      world?.update(current);
+      if (!world) return;
+      try {
+        world.update(current);
+        const label = t('world.canvas');
+        if (world.stage.canvas.getAttribute('aria-label') !== label) world.stage.canvas.setAttribute('aria-label', label);
+      } catch (error) {
+        giveUp(error);
+      }
     },
     destroy() {
       gone = true;

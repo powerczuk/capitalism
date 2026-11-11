@@ -172,6 +172,62 @@ test("city plan: a mod's district finds its place by its ring", () => {
   }
 });
 
+test('city plan: content the plan does not know still gets a stable plan', () => {
+  const { seed, cities, city, plan } = all[0];
+  assert.deepEqual(plan.short, {}, 'the base game fits its plan');
+
+  // a district that names a ring the plan has never heard of joins the outer ring
+  const oddMod = {
+    id: 'plan-test-odd-ring',
+    install(c) {
+      c.districts.register({
+        id: 'oddville', icon: '❓', traffic: 1, cost: 1, upkeep: 1, ring: 'somewhere', plots: { base: 3, per: 500_000 },
+        name: { pl: 'Dziwnowo', en: 'Oddville' },
+        desc: { pl: 'Dzielnica o nieznanym położeniu.', en: 'A district that lies who knows where.' },
+      });
+    },
+  };
+  const odd = createContent({ mods: [...MODS, oddMod] });
+  const oddPlan = cityPlan(odd, city, { seed, cities });
+  assert.equal(oddPlan.rings.oddville, 'outer');
+  assert.ok(oddPlan.lots.oddville.length >= plotCaps(odd, city).oddville, 'and gets its plots');
+
+  // a city whose archetype has left the game keeps one plan however it grows
+  const orphan = { ...city, arch: 'no-such-archetype' };
+  const small = cityPlan(content, { ...orphan, pop: 900_000 }, { seed, cities });
+  const huge = cityPlan(content, { ...orphan, pop: 9_000_000 }, { seed, cities });
+  assert.deepEqual(huge.lots, small.lots, 'plots do not move when the population passes any threshold');
+  assert.deepEqual(huge.roads, small.roads);
+
+  // content that asks for more than any plan holds says how much is missing instead of failing
+  const greedyMod = {
+    id: 'plan-test-greedy',
+    install(c) {
+      c.districts.register({
+        id: 'estates', icon: '🌾', traffic: 0.3, cost: 0.5, upkeep: 0.8, ring: 'country', plots: { base: 40, per: 100_000 },
+        name: { pl: 'Folwarki', en: 'Estates' },
+        desc: { pl: 'Bardzo dużo wielkich działek.', en: 'A great many big plots.' },
+      });
+    },
+  };
+  const greedy = createContent({ mods: [...MODS, greedyMod] });
+  const greedyPlan = cityPlan(greedy, city, { seed, cities });
+  const caps = plotCaps(greedy, city);
+  assert.equal(greedyPlan.lots.estates.length + (greedyPlan.short.estates ?? 0), caps.estates, 'what is planned and what is missing add up');
+  assert.ok(greedyPlan.short.estates > 0, 'two rings round a town cannot hold that many');
+});
+
+test('plan drawing: the picture ends just beyond the town, so plots are as large as they can be', () => {
+  for (const { plan } of all.slice(0, 6)) {
+    const svg = planSvg(plan, {});
+    const [, x, , w] = svg.match(/viewBox="(-?[\d.]+) (-?[\d.]+) ([\d.]+) ([\d.]+)"/).map(Number);
+    assert.ok(w < 2 * plan.size, 'the far country is left out');
+    for (const lot of Object.values(plan.lots).flat()) {
+      assert.ok(Math.abs(lot.x) + Math.max(lot.w, lot.d) / 2 <= -x + 1e-6 && Math.abs(lot.z) + Math.max(lot.w, lot.d) / 2 <= -x + 1e-6, 'every plot is in the picture');
+    }
+  }
+});
+
 test('plan drawing: free plots can be picked, taken ones show their owner, the rest is hidden', () => {
   const { city, plan } = all[0];
   const free = {};

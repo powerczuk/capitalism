@@ -47,7 +47,14 @@ function rect(r) {
 export function planSvg(plan, opts = {}) {
   const S = plan.size;
   const built = opts.built ?? 1;
-  let out = `<svg class="plan" viewBox="${-S} ${-S} ${2 * S} ${2 * S}" role="img" aria-label="${esc(opts.title ?? '')}">`;
+  // The picture ends a little beyond the outermost plot or parcel: the open
+  // country further out would only make everything that matters smaller.
+  let reach = 0;
+  for (const r of [...Object.values(plan.lots).flat(), ...plan.parcels, ...(plan.port ? [plan.port] : [])]) {
+    reach = Math.max(reach, Math.abs(r.x) + Math.max(r.w, r.d) / 2, Math.abs(r.z) + Math.max(r.w, r.d) / 2);
+  }
+  const V = Math.round(Math.min(S, (reach || S) + 4) * 100) / 100;
+  let out = `<svg class="plan" viewBox="${-V} ${-V} ${2 * V} ${2 * V}" role="img" aria-label="${esc(opts.title ?? '')}">`;
   out += `<rect x="${-S}" y="${-S}" width="${2 * S}" height="${2 * S}" fill="var(--plan-land, #cfdcb4)"/>`;
 
   if (plan.coast) out += `<rect x="${-S}" y="${-S}" width="${2 * S}" height="${f(S + plan.coast.z)}" fill="var(--plan-water, #9fc4d8)"/>`;

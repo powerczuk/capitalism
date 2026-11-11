@@ -54,6 +54,8 @@ export class App {
 
     this.narrowQuery = window.matchMedia('(max-width: 820px)');
     this.narrowQuery.addEventListener('change', () => this.render());
+    // the 3D world follows the system's light or dark theme (night falls there)
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => this.render());
     window.addEventListener('resize', () => this.render());
 
     this.bindEvents();
@@ -190,6 +192,7 @@ export class App {
     this.ui.view = view;
     this.ui.arg = arg;
     this.ui.moreOpen = false;
+    this.ui.world.info = null; // the card of a building belongs to the place it was opened in
     if (this.narrow) this.ui.panel = null;
     this.render();
     this.root.querySelector('.main')?.scrollTo?.(0, 0);
@@ -388,6 +391,14 @@ export class App {
           this.ui.moreOpen = false;
           this.render();
         } else if (this.ui.panel) this.closePanel();
+        else if (this.ui.view === 'map' && this.ui.world.info) {
+          this.ui.world.info = null;
+          this.render();
+        } else if (this.ui.view === 'map' && this.ui.world.details) {
+          this.ui.world.details = false;
+          this.focusAfterRender('.world-tools [data-act=worldDetails]');
+          this.render();
+        }
         return;
       }
       if (!this.game || this.ui.modal || event.ctrlKey || event.metaKey || event.altKey) return;
@@ -437,6 +448,19 @@ export class App {
     morph(this.root, markup);
     refreshChartHover(this.root);
     syncWidgets(this.root, this);
+    if (this.pendingFocus) {
+      this.root.querySelector(this.pendingFocus)?.focus({ preventScroll: true });
+      this.pendingFocus = null;
+    }
+  }
+
+  /**
+   * Move the keyboard focus once the page has been redrawn — for when the
+   * button that was just used is no longer there (a drawer's close button).
+   */
+  focusAfterRender(selector) {
+    this.pendingFocus = selector;
+    this.render();
   }
 
   renderCrash(error, recoverable) {

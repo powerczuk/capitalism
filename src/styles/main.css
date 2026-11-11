@@ -1639,6 +1639,7 @@ table.data {
   padding: 1px 8px;
   border: 1px solid var(--line-strong);
   border-radius: 999px;
+  background: var(--surface);
   background: color-mix(in srgb, var(--surface) 90%, transparent);
   color: var(--ink);
   font: inherit;
@@ -1646,12 +1647,14 @@ table.data {
   font-weight: 600;
   line-height: 1.5;
   white-space: nowrap;
-  cursor: pointer;
-  pointer-events: auto;
+  /* The pointer goes through to the map (it can be dragged and zoomed over a
+     name); the world finds the name under a click itself. */
+  pointer-events: none;
   will-change: transform;
 }
 
-.world-label:hover {
+.world-label.hot,
+.world-label:focus-visible {
   border-color: var(--accent);
   background: var(--surface);
 }
@@ -1724,6 +1727,7 @@ table.data {
 .world-hint {
   border: 1px solid var(--line);
   border-radius: var(--radius);
+  background: var(--surface);
   background: color-mix(in srgb, var(--surface) 94%, transparent);
   box-shadow: 0 2px 10px rgba(20, 32, 28, 0.14);
   pointer-events: auto;
@@ -1805,6 +1809,14 @@ table.data {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
+}
+
+/* Between phone and wide screens the building panel floats over the right of
+   the page: the world moves over, so that its tools and drawer stay in reach. */
+@media (min-width: 1000px) and (max-width: 1379px) {
+  .app.has-panel .main.main-fill .world {
+    right: 480px;
+  }
 }
 
 /* the drawer with the numbers of the city (or the list of cities) */
@@ -2966,6 +2978,16 @@ dd .meter {
 
   .stat-value {
     font-size: 18px;
+  }
+
+  /* the flat plan of a city: big enough for a finger, scrolled inside its box */
+  .plan-box {
+    overflow: auto;
+    max-height: 70vh;
+  }
+
+  .plan {
+    min-width: 680px;
   }
 
   /* the 3D world on a phone: tools in one scrolling row, the drawer as a sheet below */

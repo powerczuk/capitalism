@@ -80,6 +80,20 @@ async function worldPoint(page, pick) {
   throw new Error(`nothing reaches ${JSON.stringify(pick)} from any side`);
 }
 
+/**
+ * Click a name that stands over the 3D map. The names let the pointer
+ * through to the map (it can be dragged and zoomed over them), so the click
+ * goes where the name is, the way a player's does.
+ */
+async function clickLabel(page, selector) {
+  const box = await page.$eval(selector, (el) => {
+    const r = el.getBoundingClientRect();
+    return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+  });
+  await page.mouse.move(box.x, box.y);
+  await page.mouse.click(box.x, box.y);
+}
+
 /** Click a city, plot or building of the 3D world. */
 async function worldClick(page, pick) {
   const at = await worldPoint(page, pick);
@@ -106,9 +120,18 @@ async function run(name, viewport) {
   check((await page.evaluate(() => window.hossa.ui.view)) === 'map', `${name}: a new game opens on the map`);
   await worldReady(page, 'country');
   const cityId = await page.evaluate(() => window.hossa.game.cities()[0].id);
+  const inView = await page.evaluate(() => {
+    const world = window.hossa.world3d;
+    return window.hossa.game.cities().filter((city) => {
+      const at = world.screenOf({ kind: 'city', id: city.id });
+      return at.x > 10 && at.y > 10 && at.x < world.stage.width - 10 && at.y < world.stage.height - 10;
+    }).length;
+  });
+  check(inView === (await page.evaluate(() => window.hossa.game.cities().length)), `${name}: every city of the country is in view when the map opens (${inView})`);
   await worldClick(page, { kind: 'city', id: cityId });
   await worldReady(page, cityId);
   check((await page.evaluate(() => window.hossa.ui.arg)) === cityId, `${name}: clicking a city on the map opens it`);
+  check(await page.evaluate(() => document.querySelector('.world-tip').hidden), `${name}: the tip that named the city on the map does not linger in the city`);
   await worldClick(page, { kind: 'lot', district: 'suburb', lot: 2 });
   await page.waitForSelector('.modal');
   await page.click('[data-act=buildHere][data-type=supermarket]');
@@ -250,6 +273,8 @@ async function flows() {
   await page.click('[data-act=closePanel]');
 
   // Research, advertising, bank, shares. The lab goes on a plot picked on the flat plan of the city.
+  const plotPx = await page.$eval('.plan-lot[data-district=center]', (el) => el.getBoundingClientRect().width);
+  check(plotPx >= 16, `${name}: a plot on the flat plan is large enough to hit (${plotPx.toFixed(1)} px)`);
   const planLot = await page.getAttribute('.plan-lot[data-district=industrial]', 'data-lot');
   await page.click('.plan-lot[data-district=industrial]');
   await page.click('[data-act=buildHere][data-type=lab]');
@@ -370,7 +395,7 @@ async function world() {
   check(!!target.rival, `${name}: after a year some rival has a finished building`);
   // The name over a city is a button: clicking it goes down to the city, like clicking the city itself.
   await worldPoint(page, { kind: 'city', id: target.city });
-  await page.click(`.world-label-city[data-id="${target.city}"]`);
+  await clickLabel(page, `.world-label-city[data-id="${target.city}"]`);
   await worldReady(page, target.city);
   check((await S(() => window.hossa.world3d.current.highlight?.visible)) === true, `${name}: a company without buildings is shown the free plots`);
 
@@ -431,7 +456,7 @@ async function world() {
   await page.click('[data-act=closePanel]');
   await page.waitForFunction(() => !document.querySelector('.panel'));
   await page.waitForFunction(() => window.hossa.world3d.current.markers.selected.mesh.visible === false);
-  await page.click(`.world-label-own[data-id="${mine}"]`);
+  await clickLabel(page, `.world-label-own[data-id="${mine}"]`);
   await page.waitForSelector('.panel');
   check((await S(() => window.hossa.ui.panel.id)) === mine, `${name}: clicking the name over the own building opens its panel too`);
   await page.click('[data-act=closePanel]');
@@ -471,12 +496,203 @@ async function world() {
   check((await page.getAttribute('.world-gl', 'data-mark')) === 'kept', `${name}: the world is not rebuilt when the map is opened again`);
   check(Math.abs(back.x - cam.x) < 1e-6 && Math.abs(back.zoom - cam.zoom) < 1e-6 && back.rot === cam.rot, `${name}: the camera is where it was left`);
 
-  // Back to the country with the arrow in the title.
-  await page.click('.world-title [data-act=go]');
+  // Back to the country with the arrow in the title; the keyboard carries on from the map.
+  await page.focus('.world-title [data-act=go]');
+  await page.keyboard.press('Enter');
   await worldReady(page, 'country');
   check((await page.$('.world-label-city.mine')) !== null, `${name}: the map of the country marks the city the player has built in`);
+  check((await S(() => document.activeElement?.className)) === 'world-gl', `${name}: after going back with the keyboard the focus is on the map, not lost`);
+
+  // ----- what a review of the 3D world found, kept fixed -----
+
+  // A card about a rival's building stays in the city it was opened in, and Escape closes it.
+  await S((id) => window.hossa.go('map', id), target.city);
+  await worldReady(page, target.city);
+  await worldClick(page, { kind: 'building', id: target.rival });
+  await page.waitForSelector('.world-card');
+  await page.keyboard.press('Escape');
+  await page.waitForFunction(() => !document.querySelector('.world-card'));
+  await worldClick(page, { kind: 'building', id: target.rival });
+  await page.waitForSelector('.world-card');
+  await S(() => window.hossa.go('map'));
+  await worldReady(page, 'country');
+  check((await page.$('.world-card')) === null, `${name}: the card of a building does not follow the player to the country`);
+  await S((id) => window.hossa.go('map', id), target.city);
+  await worldReady(page, target.city);
+  check((await page.$('.world-card')) === null, `${name}: …nor come back with the city`);
+
+  // The drawer: Escape closes it and hands the focus back to its button; toggles say whether they are on.
+  await page.click('[data-act=worldDetails]');
+  await page.waitForSelector('.world-details');
+  check((await page.getAttribute('.world-tools [data-act=worldDetails]', 'aria-pressed')) === 'true', `${name}: an open drawer is announced as pressed`);
+  await page.keyboard.press('Escape');
+  await page.waitForFunction(() => !document.querySelector('.world-details'));
+  await page.waitForFunction(() => document.activeElement?.dataset.act === 'worldDetails');
+  check((await page.getAttribute('.world-tools [data-act=worldDetails]', 'aria-pressed')) === 'false', `${name}: …and a closed one as not pressed`);
+
+  // Keys: letters in either case; the browser's own shortcuts are left alone.
+  await page.focus('.world-gl');
+  const rot0 = (await view()).rot;
+  await page.keyboard.press('Shift+Q');
+  await settled();
+  check((await view()).rot === (rot0 + 3) % 4, `${name}: a capital Q turns the view as well`);
+  await page.keyboard.press('Control+E');
+  await page.waitForTimeout(120);
+  await settled();
+  check((await view()).rot === (rot0 + 3) % 4, `${name}: Ctrl+E belongs to the browser, not to the map`);
+  await page.keyboard.press('e');
+  await settled();
+
+  // A click may wobble a little and is still a click.
+  const wobble = await worldPoint(page, { kind: 'lot', district: 'residential', lot: target.lot + 1 });
+  await page.mouse.move(wobble.x, wobble.y);
+  await page.mouse.down();
+  await page.mouse.move(wobble.x + 2, wobble.y + 1);
+  await page.mouse.move(wobble.x - 1, wobble.y);
+  await page.mouse.move(wobble.x, wobble.y);
+  await page.mouse.up();
+  const wobbled = await page.waitForSelector('.modal', { timeout: 3000 }).then(() => true, () => false);
+  check(wobbled, `${name}: a press that wobbles by a pixel or two is still a click`);
+  await page.keyboard.press('Escape');
+  await page.waitForFunction(() => !document.querySelector('.modal'));
+
+  // Two fingers move within one frame: the ground between them must stay where it is.
+  const drift = await S(() => {
+    const stage = window.hossa.world3d.stage;
+    stage.renderNow();
+    const px = stage.width * 0.3;
+    const py = stage.height * 0.4;
+    const before = stage.groundAt(px, py);
+    stage.zoomBy(0.85, px, py);
+    stage.zoomBy(0.85, px, py); // the second finger, before anything has been drawn
+    stage.renderNow();
+    const after = stage.groundAt(px, py);
+    return Math.hypot(after.x - before.x, after.z - before.z);
+  });
+  check(drift < 0.05, `${name}: zooming twice within a frame keeps the point under the fingers (it moved ${drift.toFixed(2)} units)`);
+
+  // A turn that is interrupted still ends on a quarter.
+  const rested = await S(() => {
+    const stage = window.hossa.world3d.stage;
+    stage.rotate(1);
+    stage.panBy(12, 0);
+    return { rot: stage.view.rot, flying: stage.flying };
+  });
+  check(Number.isInteger(rested.rot) && !rested.flying, `${name}: a turn cut short by a drag rests on a quarter (${JSON.stringify(rested)})`);
+
+  // The tip stays inside the map at its right and bottom edges.
+  const tipBox = await S((lot) => {
+    const world = window.hossa.world3d;
+    world.onHover({ kind: 'lot', district: 'residential', lot }, { x: world.stage.width - 3, y: world.stage.height - 3 });
+    const tip = document.querySelector('.world-tip').getBoundingClientRect();
+    const host = document.querySelector('.world-host').getBoundingClientRect();
+    const inside = tip.left >= host.left && tip.right <= host.right && tip.top >= host.top && tip.bottom <= host.bottom;
+    world.onHover(null, { x: -1, y: -1 });
+    return { inside, hidden: document.querySelector('.world-tip').hidden };
+  }, target.lot + 1);
+  check(tipBox.inside && tipBox.hidden, `${name}: the tip is kept inside the map and goes when the pointer leaves (${JSON.stringify(tipBox)})`);
+
+  // With the building panel open the tools of the map stay in reach (the panel floats over the page at this width).
+  await S((id) => window.hossa.openBuilding(id), mine);
+  await page.waitForSelector('.panel');
+  await page.waitForTimeout(150);
+  const covered = await S(() =>
+    [...document.querySelectorAll('.world-tools .tool')].filter((el) => {
+      const r = el.getBoundingClientRect();
+      const top = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+      return !el.contains(top);
+    }).length,
+  );
+  check(covered === 0, `${name}: ${covered} tool(s) of the map lie under the building panel`);
+  await page.click('[data-act=closePanel]');
+  await page.waitForFunction(() => !document.querySelector('.panel'));
+
+  // Leaving a city while the camera is still coming down keeps where it was going, not where it was.
+  const other = await S((first) => window.hossa.game.cities().find((c) => c.id !== first).id, target.city);
+  await S(() => window.hossa.go('map'));
+  await worldReady(page, 'country');
+  await S((id) => window.hossa.go('map', id), other);
+  await page.waitForFunction((id) => window.hossa.world3d.key === id, other);
+  await S(() => window.hossa.go('overview'));
+  await page.waitForFunction(() => !document.querySelector('.world-gl'));
+  await S((id) => window.hossa.go('map', id), other);
+  await worldReady(page, other);
+  const landed = await S(() => ({ zoom: window.hossa.world3d.stage.view.zoom, meant: window.hossa.world3d.current.view.zoom }));
+  check(Math.abs(landed.zoom - landed.meant) < 0.5, `${name}: a city left in mid-descent is found at its own height again (${JSON.stringify(landed)})`);
+
+  // The system's dark theme is night in the world at once, without waiting for anything else to redraw
+  // (for a player who has not chosen a theme of their own).
+  await S(() => window.hossa.setTheme('system'));
+  await page.emulateMedia({ colorScheme: 'dark' });
+  const night = await page.waitForFunction(() => window.hossa.world3d.stage.mode === 'night', null, { timeout: 3000 }).then(() => true, () => false);
+  check(night, `${name}: the world follows the system's dark theme`);
+  await page.emulateMedia({ colorScheme: 'light' });
+  await page.waitForFunction(() => window.hossa.world3d.stage.mode === 'day');
 
   check(problems.length === 0, `${name}: console errors:\n  ${problems.join('\n  ')}`);
+
+  // A model that fails to draw (a mod's, most likely) is replaced by a plain building; the world carries on.
+  const broken = await S(async (cityId) => {
+    const models = await import('/src/ui3d/models/index.js');
+    models.registerModel('lab', () => {
+      throw new Error('model boom');
+    });
+    const app = window.hossa;
+    app.me.cash = 1e9;
+    const built = app.cmd('build', { type: 'lab', city: cityId, district: 'industrial' });
+    app.game.state.buildings[built.building].ready = app.game.state.day; // finished at once
+    app.render();
+    return built.building;
+  }, other);
+  await page.waitForFunction((id) => window.hossa.world3d?.current.buildings.has(id), broken, { timeout: 5000 }).catch(() => {});
+  const survived = await S((id) => ({ shown: !!window.hossa.world3d?.current.buildings.has(id), no3d: window.hossa.no3d, crash: !!document.querySelector('.crash') }), broken);
+  check(survived.shown && !survived.no3d && !survived.crash, `${name}: a failing model must not take the world down (${JSON.stringify(survived)})`);
+
+  // …and if the world itself fails, the flat map takes over instead of the game ending.
+  await S(() => {
+    window.hossa.world3d.current.sync = () => {
+      throw new Error('scene boom');
+    };
+    window.hossa.render();
+  });
+  await page.waitForSelector('.plan', { timeout: 5000 }).catch(() => {});
+  const fell = await S(() => ({ flat: !!document.querySelector('.plan'), no3d: window.hossa.no3d, crash: !!document.querySelector('.crash'), told: window.hossa.ui.toasts.length }));
+  check(fell.flat && fell.no3d && !fell.crash && fell.told > 0, `${name}: a failing world falls back to the flat map (${JSON.stringify(fell)})`);
+  await page.close();
+
+  // A game that is only watched: buildings can be looked at, plots cannot be clicked.
+  page = await browser.newPage({ viewport: { width: 1360, height: 860 } });
+  const watching = [];
+  page.on('console', (m) => m.type() === 'error' && watching.push(m.text()));
+  page.on('pageerror', (e) => watching.push(e.message));
+  await page.goto(url, { waitUntil: 'networkidle' });
+  await page.click('[data-act=draftOpen]');
+  await page.fill('#start-seed', 'watch');
+  await page.check('#opt-spectate');
+  await page.click('#new-game button[type=submit]');
+  await page.waitForSelector('.app');
+  await worldReady(page, 'country');
+  const watched = await page.evaluate(() => {
+    const app = window.hossa;
+    for (let i = 0; i < 200; i++) app.game.tick();
+    const city = [...app.game.cities()].sort((a, b) => app.game.buildingsIn(b.id).length - app.game.buildingsIn(a.id).length)[0];
+    app.go('map', city.id);
+    return city.id;
+  });
+  await worldReady(page, watched);
+  const idle = await page.evaluate(() => {
+    const world = window.hossa.world3d;
+    const scene = world.current;
+    world.stage.renderNow();
+    let reachable = 0;
+    for (const key of scene.lotProxies.keys()) {
+      const [district, lot] = key.split(':');
+      if (world.reach({ kind: 'lot', district, lot: Number(lot) })) reachable++;
+    }
+    return { plots: scene.lotProxies.size, reachable, tool: !!document.querySelector('[data-act=worldLots]') };
+  });
+  check(idle.plots > 0 && idle.reachable === 0 && !idle.tool, `${name}: with no company to build, free plots are not clickable (${JSON.stringify(idle)})`);
+  check(watching.length === 0, `${name}: console errors while watching:\n  ${watching.join('\n  ')}`);
   await page.close();
 
   // Without WebGL the flat map takes over, and building works from its plan.
