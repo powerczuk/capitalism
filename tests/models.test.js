@@ -13,6 +13,8 @@ import { PARCELS, parcel } from '../src/ui3d/models/town.js';
 
 const content = createContent();
 const BASE = ['supermarket', 'department', 'electronics', 'factory', 'lab', 'farm', 'mine', 'forestry'];
+/** Every model that belongs to a building type: the base game's, and any a mod brought along. */
+const OWN = [...new Set([...BASE, ...content.buildingTypes.all().map((type) => type.id).filter((id) => hasModel(id))])];
 
 /** Largest overhang beyond the plot, lowest and highest point, and bad numbers of a set of geometries. */
 function measure(geometries, lot) {
@@ -53,7 +55,7 @@ test('models: every building type of the game has a model', () => {
 });
 
 test('models: three levels each, inside the plot, within the triangle budget', () => {
-  for (const id of BASE) {
+  for (const id of OWN) {
     const lot = plotOf(id);
     const seen = new Set();
     let last = null;
@@ -76,7 +78,7 @@ test('models: three levels each, inside the plot, within the triangle budget', (
 });
 
 test('models: the same building always looks the same, another one may differ', () => {
-  for (const id of BASE) {
+  for (const id of OWN) {
     const lot = plotOf(id);
     const a = buildModel(id, { level: 2, lot, seed: 'one' });
     const b = buildModel(id, { level: 2, lot, seed: 'one' });
@@ -85,7 +87,7 @@ test('models: the same building always looks the same, another one may differ', 
 });
 
 test('models: the company colour shows on the building', () => {
-  for (const id of BASE) {
+  for (const id of OWN) {
     const lot = plotOf(id);
     const red = buildModel(id, { level: 1, lot, seed: 's', color: 0xff0000 }).geometries.solid.attributes.color.array;
     const blue = buildModel(id, { level: 1, lot, seed: 's', color: 0x0000ff }).geometries.solid.attributes.color.array;
