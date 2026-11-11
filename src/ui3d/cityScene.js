@@ -380,15 +380,22 @@ export class CityScene {
     return cur ? { x: cur.lot.x, y: cur.height + 0.4, z: cur.lot.z } : null;
   }
 
-  /** Names over the player's own buildings. */
+  /**
+   * What stands over the buildings: the names of the player's own, and over
+   * everybody else's a small mark in the colour of its company, so that the
+   * competition can be told from the town at a glance.
+   */
   labels(app) {
     const me = app.me;
-    if (!me) return [];
     const out = [];
     for (const b of app.game.buildingsIn(this.city.id)) {
-      if (b.co !== me.id) continue;
       const at = this.anchor(b.id);
-      if (at) out.push({ id: b.id, ...at, text: app.buildingName(b), cls: 'world-label-own', color: `var(--series-${(me.color % 8) + 1})`, pick: { kind: 'building', id: b.id } });
+      if (!at) continue;
+      const owner = app.game.state.companies[b.co];
+      const color = `var(--series-${((owner?.color ?? 0) % 8) + 1})`;
+      const pick = { kind: 'building', id: b.id };
+      if (me && b.co === me.id) out.push({ id: b.id, ...at, text: app.buildingName(b), cls: 'world-label-own', color, pick });
+      else out.push({ id: b.id, ...at, text: '', cls: 'world-pin', color, pick, mark: true });
     }
     return out;
   }

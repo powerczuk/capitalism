@@ -370,13 +370,29 @@ function infoCard(app, id) {
   </div>`;
 }
 
+/**
+ * Who has built here: the companies with buildings in the city (in the whole
+ * country, on its map), the busiest first. It is the key to the colours of
+ * the marks over buildings and of the flags over cities.
+ */
+function owners(app, city) {
+  const { game } = app;
+  const count = new Map();
+  for (const b of city ? game.buildingsIn(city.id) : Object.values(game.state.buildings)) count.set(b.co, (count.get(b.co) ?? 0) + 1);
+  return [...count]
+    .map(([id, n]) => ({ co: game.state.companies[id], n }))
+    .filter((o) => o.co)
+    .sort((a, b) => b.n - a.n);
+}
+
 function worldView(app, city) {
   const { game, me, content } = app;
   const w = app.ui.world;
-  if (w.lots == null) w.lots = !!me && game.buildingsOf(me.id).length < 3; // a new company is shown where it can build
+  if (w.lots == null) w.lots = app.prefs.mapLots !== false; // free plots are lit unless the player has switched that off
   const arch = city ? content.cityArchetypes.find(city.arch) : null;
   const mine = city && me ? game.buildingsIn(city.id).filter((b) => b.co === me.id).length : 0;
   const hint = !city ? t('world.hint.country') : me && w.lots ? t('world.hint.build') : t('world.hint.city');
+  const who = owners(app, city);
   return html`<div class="world ${w.details ? 'with-details' : ''}">
     <div id="world3d" class="world-stage" data-widget="world3d" data-morph="keep"></div>
     <div class="world-hud">
@@ -400,7 +416,14 @@ function worldView(app, city) {
           ${tool('flat', 'worldFlat', t('world.flat'))}
         </div>
       </div>
-      <p class="world-hint">${hint}</p>
+      <div class="world-foot">
+        ${who.length
+          ? html`<ul class="world-legend" aria-label="${t('world.legend')}">
+              ${who.map(({ co, n }) => html`<li class="${me && co.id === me.id ? 'mine' : ''}">${coName(co)}<b>${n}</b></li>`)}
+            </ul>`
+          : ''}
+        <p class="world-hint">${hint}</p>
+      </div>
       ${w.info ? infoCard(app, w.info) : ''}
     </div>
     ${w.details
@@ -550,6 +573,8 @@ export const mapActions = {
   },
   worldLots(app) {
     app.ui.world.lots = !app.ui.world.lots;
+    app.prefs.mapLots = app.ui.world.lots; // remembered: free plots stay lit (or not) in every game
+    savePrefs(app.prefs);
   },
   worldTurn(app, d) {
     app.world3d?.rotate(Number(d.dir));

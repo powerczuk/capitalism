@@ -238,7 +238,7 @@ class World {
       this.stage.canvas.style.cursor = 'pointer';
     }
     if (this.current?.mark?.('hover', target)) this.stage.invalidate();
-    const text = target && !label ? this.app?.describePick?.(target) : null;
+    const text = target && !label?.text ? this.app?.describePick?.(target) : null; // a name needs no tip; a mark does
     if (!text) {
       this.tip.hidden = true;
       return;
@@ -276,6 +276,14 @@ class World {
         label = { el };
         this.labels.set(item.id, label);
       }
+      if (label.mark !== !!item.mark) {
+        // A mark without a name (a rival's building) is for the eye and the
+        // pointer; the keyboard finds the same buildings in the drawer.
+        label.mark = !!item.mark;
+        label.el.tabIndex = item.mark ? -1 : 0;
+        if (item.mark) label.el.setAttribute('aria-hidden', 'true');
+        else label.el.removeAttribute('aria-hidden');
+      }
       label.at = item;
       const cls = `world-label ${item.cls ?? ''}`;
       if (label.el.className !== cls) label.el.className = cls;
@@ -303,7 +311,8 @@ class World {
     for (const label of this.labels.values()) {
       const { x, y, z } = label.at;
       this.stage.project(x, y, z, p);
-      const off = far || p.x < -60 || p.y < -30 || p.x > this.stage.width + 60 || p.y > this.stage.height + 30;
+      // names are dropped when looking from far away; the small marks stay
+      const off = (far && !label.at.mark) || p.x < -60 || p.y < -30 || p.x > this.stage.width + 60 || p.y > this.stage.height + 30;
       if (off !== label.off) {
         label.off = off;
         label.el.style.display = off ? 'none' : '';

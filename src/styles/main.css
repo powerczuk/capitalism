@@ -1667,6 +1667,25 @@ table.data {
   background: var(--dot, var(--ink-3));
 }
 
+/* a rival's building: just a mark in its company's colour */
+.world-pin {
+  width: 13px;
+  height: 13px;
+  padding: 0;
+  border: 2px solid var(--surface);
+  border-radius: 50%;
+  background: var(--dot, var(--ink-3));
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+  opacity: 0.94;
+}
+
+.world-pin.hot {
+  border-color: var(--surface);
+  background: var(--dot, var(--ink-3));
+  box-shadow: 0 0 0 3px var(--accent);
+  opacity: 1;
+}
+
 .world-label-city {
   padding: 1px 11px 0;
   border-radius: var(--radius-sm);
@@ -1724,6 +1743,7 @@ table.data {
 .world-title,
 .world-tools,
 .world-card,
+.world-legend,
 .world-hint {
   border: 1px solid var(--line);
   border-radius: var(--radius);
@@ -1787,8 +1807,45 @@ table.data {
   color: var(--accent);
 }
 
-.world-hint {
+/* at the foot of the map: who has built here (the key to the colours), and a hint */
+.world-foot {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  max-width: 100%;
   margin-top: auto;
+}
+
+.world-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 12px;
+  max-width: min(100%, 62ch);
+  margin: 0;
+  padding: 4px 10px;
+  list-style: none;
+  font-size: 12px;
+}
+
+.world-legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+}
+
+.world-legend b {
+  color: var(--ink-3);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+.world-legend .mine .co-name {
+  font-weight: 700;
+}
+
+.world-hint {
   max-width: min(100%, 62ch);
   padding: 5px 12px;
   color: var(--ink-2);
@@ -3026,8 +3083,14 @@ dd .meter {
     font-size: 12px;
   }
 
-  .world.with-details .world-hint {
+  .world.with-details .world-foot {
     display: none;
+  }
+
+  /* one scrolling row, so that the key never takes much of a small map */
+  .world-legend {
+    flex-wrap: nowrap;
+    overflow-x: auto;
   }
 }
 
