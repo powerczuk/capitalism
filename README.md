@@ -26,7 +26,7 @@ zależności do instalowania; `npm install` jest potrzebne wyłącznie do
 opcjonalnej wersji jednoplikowej i do odświeżenia kopii three.js.
 
 ```bash
-npm test             # testy silnika, zasad, zapisów, giełdy i AI (node:test)
+npm test             # testy silnika, zasad, zapisów, giełdy, AI, planu miast i modeli 3D
 npm run sim          # symulacja AI kontra AI — stanowisko do balansu
 npm run check        # tabela ekonomii produktów (koszty, ceny, marże)
 npm run build        # dist/wielka-hossa.html — cała gra w jednym pliku
@@ -163,9 +163,10 @@ docs/MODDING.md         jak rozbudowywać grę
   Scena tylko rysuje stan i zamienia kliknięcia na zwykłe polecenia
   (`build` z numerem działki, otwarcie panelu). Moduł 3D ładuje się dopiero
   przy pierwszym otwarciu mapy, a testy i symulator go nie potrzebują.
-- **Modele to funkcje** rysujące z prostych brył (`ui3d/kit.js`): jeden model
-  to jedna siatka z kolorami w wierzchołkach, więc całe miasto to kilkanaście
-  wywołań rysowania.
+- **Modele to funkcje** rysujące z prostych brył (`ui3d/kit.js`), bez tekstur:
+  kolory siedzą w wierzchołkach. Teren, ulice i cała zabudowa miasta między
+  działkami to po jednej siatce, a każdy budynek spółki — kilka wywołań
+  rysowania; metropolia po dziesięciu latach gry to ok. 200 tys. trójkątów.
 
 ## Rozbudowa
 
