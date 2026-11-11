@@ -282,6 +282,11 @@ export class Stage {
     this.flyTo({ rot: Math.round(from) + steps }, 380);
   }
 
+  /** Is the camera on its way somewhere (see flyTo)? */
+  get flying() {
+    return !!this.tween;
+  }
+
   /** Glide to a view; any of x, z, zoom, rot may be given. */
   flyTo(target, ms = 600) {
     const from = { ...this.view };
