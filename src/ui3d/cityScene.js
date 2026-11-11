@@ -10,11 +10,15 @@
 //
 // What can be clicked carries `userData.pick`:
 //   { kind: 'building', id }   or   { kind: 'lot', district, lot }
+// A building is picked by what is drawn of it (its own meshes, and a thin pad
+// over the rest of its plot), a free plot by a pad. The town in between
+// cannot be picked, but it hides what stands behind it (see `blocker`).
 
 import { BoxGeometry, Color, Group, InstancedMesh, Matrix4, Mesh, MeshBasicMaterial, MeshStandardMaterial, Quaternion, Vector3 } from './three.js';
 import { GRID, builtShare, cityPlan } from '../geo/cityPlan.js';
 import { plotsOf } from '../sim/world.js';
 import { Builder, rng } from './kit.js';
+import { Occluder } from './occluder.js';
 import { disposeTree, groupOf } from './stage.js';
 import { buildModel } from './models/all.js';
 import { PARCELS, parcel } from './models/town.js';
@@ -31,6 +35,9 @@ function hash(text) {
   for (let i = 0; i < text.length; i++) h = Math.imul(h ^ text.charCodeAt(i), 16777619);
   return h >>> 0;
 }
+
+/** Height of the invisible pad that makes the ground of a plot clickable. */
+const PAD = 0.14;
 
 /** Colours of the frames round a plot: under the pointer, and the one a panel or dialog is about. */
 const MARKER = { hover: 0x1a8cff, selected: 0xffb020 };
@@ -60,8 +67,11 @@ export class CityScene {
     this.plan = cityPlan(content, city, { seed: game.state.settings.seed, cities: game.cities() });
     this.group = new Group();
     this.pickables = [];
-    this.buildings = new Map(); // building id → { key, node, proxy, lot, height }
+    this.buildings = new Map(); // building id → { key, node, proxy, targets, lot, height }
     this.lotProxies = new Map(); // "district:lot" → proxy mesh of a free plot
+    this.townCover = new Occluder(this.plan.size); // what the town hides…
+    this.reserveCover = new Occluder(this.plan.size); // …and what stands on plots not released yet
+    this.blocker = (ray, limit) => Math.min(this.townCover.block(ray.origin, ray.direction, limit), this.reserveCover.block(ray.origin, ray.direction, limit));
     this.smoke = []; // chimney tops in world space
     const edge = this.plan.size - 10;
     this.bounds = { minX: -edge, maxX: edge, minZ: -edge, maxZ: edge, minZoom: 12, maxZoom: Math.min(260, this.plan.size * 2.4) };
@@ -76,6 +86,7 @@ export class CityScene {
     this.highlight = null;
     this.showLots = false;
     this.markers = {}; // frames round what is hovered and what is selected
+    this.canBuild = !!game.human; // free plots can be clicked only where there is someone to build
     this._traffic(game);
     this._smoke();
     this.sync(game);
@@ -107,8 +118,10 @@ export class CityScene {
       b.at(p.x, 0, p.z, p.ry, () => drawParcel(b, kind, p.w, p.d));
     }
     for (const p of this.plan.scenery) b.at(p.x, 0, p.z, p.ry, () => drawParcel(b, p.kind, p.w, p.d));
-    this.town = groupOf(b.build(), this.materials);
+    const geometries = b.build();
+    this.town = groupOf(geometries, this.materials);
     this.group.add(this.town);
+    this.townCover.build([geometries.solid, geometries.glass]);
   }
 
   // --- plots ---------------------------------------------------------------------------------
@@ -150,6 +163,7 @@ export class CityScene {
     const taken = new Set();
     for (const b of game.buildingsIn(this.city.id)) taken.add(`${b.district}:${b.lot}`);
     const b = new Builder(hash(`${this.seed}|pads`));
+    const reserve = new Builder(hash(`${this.seed}|reserve`));
     const glowing = new Builder(1);
     for (const district of Object.keys(this.plan.lots)) {
       const open = this.content.districts.has(district) ? plotsOf(this.content, this.city, district) : 0;
@@ -158,14 +172,19 @@ export class CityScene {
         if (k < open) {
           infra.freePlot(b, lot);
           glowing.at(lot.x, 0, lot.z, lot.ry, () => glowing.plane(0, 0.05, 0, lot.w - 0.3, lot.d - 0.3, 0xffffff));
-          this.lotProxies.set(`${district}:${k}`, this._proxy(lot, 0.5, { kind: 'lot', district, lot: k }));
+          const proxy = this._proxy(lot, PAD, { kind: 'lot', district, lot: k });
+          proxy.visible = this.canBuild; // nobody to build: nothing to click
+          this.lotProxies.set(`${district}:${k}`, proxy);
         } else {
           // land the town has not released for building yet
-          b.at(lot.x, 0, lot.z, lot.ry, () => drawParcel(b, RESERVE[this.plan.rings?.[district]] ?? 'meadow', lot.w, lot.d));
+          reserve.at(lot.x, 0, lot.z, lot.ry, () => drawParcel(reserve, RESERVE[this.plan.rings?.[district]] ?? 'meadow', lot.w, lot.d));
         }
       });
     }
     this.pads = groupOf(b.build(), this.materials);
+    const held = reserve.build();
+    this.pads.add(...groupOf(held, this.materials).children);
+    this.reserveCover.build([held.solid, held.glass]);
     // the wash of colour that shows where one can build
     const wash = glowing.build().solid;
     if (wash) {
@@ -195,7 +214,7 @@ export class CityScene {
    */
   mark(which, pick) {
     const marker = (this.markers[which] ??= { mesh: null, key: '', size: '' });
-    const lot = pick ? (pick.kind === 'building' ? this.buildings.get(pick.id)?.lot : pick.kind === 'lot' ? this.lotAt(pick.district, pick.lot) : null) : null;
+    const lot = this.plotOf(pick);
     const key = lot ? `${lot.x},${lot.z},${lot.w},${lot.d},${lot.ry}` : '';
     if (key === marker.key) return false;
     marker.key = key;
@@ -246,6 +265,10 @@ export class CityScene {
     this.group.remove(cur.node);
     disposeTree(cur.node);
     this._dropProxy(cur.proxy);
+    for (const mesh of cur.targets) {
+      const i = this.pickables.indexOf(mesh);
+      if (i >= 0) this.pickables.splice(i, 1);
+    }
     this.buildings.delete(id);
   }
 
@@ -270,19 +293,31 @@ export class CityScene {
     node.rotation.y = lot.ry;
     node.updateMatrixWorld(true);
     this.group.add(node);
-    const proxy = this._proxy(lot, Math.max(0.8, height), { kind: 'building', id: b.id });
+    // picked by what is drawn of it, and by a thin pad over the rest of its plot
+    const pick = { kind: 'building', id: b.id };
+    const targets = node.children.filter((mesh) => mesh.name === 'solid' || mesh.name === 'glass');
+    for (const mesh of targets) {
+      mesh.userData.pick = pick;
+      this.pickables.push(mesh);
+    }
+    const proxy = this._proxy(lot, PAD, pick);
     const smoke = (site ? [] : model.extras.smoke ?? []).map(([x, y, z]) => new Vector3(x, y, z).applyMatrix4(node.matrixWorld));
-    this.buildings.set(b.id, { key, node, proxy, lot, height, smoke });
+    this.buildings.set(b.id, { key, node, proxy, targets, lot, height, smoke });
   }
 
   /**
    * Bring the scene in step with the game.
    * @returns {boolean} true when something was redrawn (the stage should render, shadows included)
    */
-  sync(game) {
+  sync(game, me = game.human) {
     const { state } = game;
     let changed = false;
     let padsDirty = false;
+    const canBuild = !!me;
+    if (canBuild !== this.canBuild) {
+      this.canBuild = canBuild;
+      for (const proxy of this.lotProxies.values()) proxy.visible = canBuild;
+    }
     const seen = new Set();
     for (const b of game.buildingsIn(this.city.id)) {
       seen.add(b.id);
@@ -347,9 +382,16 @@ export class CityScene {
     return out;
   }
 
+  /** The plot a pick is about: { x, z, w, d, ry }, or null. */
+  plotOf(pick) {
+    if (pick?.kind === 'building') return this.buildings.get(pick.id)?.lot ?? null;
+    if (pick?.kind === 'lot') return this.lotAt(pick.district, pick.lot);
+    return null;
+  }
+
   /** Centre of a plot or building on the ground — for flying the camera there. */
   locate(pick) {
-    const lot = pick.kind === 'building' ? this.buildings.get(pick.id)?.lot : this.lotAt(pick.district, pick.lot);
+    const lot = this.plotOf(pick);
     return lot ? { x: lot.x, z: lot.z } : null;
   }
 

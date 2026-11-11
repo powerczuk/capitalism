@@ -151,7 +151,7 @@ class World {
     this.current = scene;
     this.clearLabels();
     const view = this.views.get(key) ?? scene.view;
-    this.stage.show(scene.group, { pickables: scene.pickables, bounds: scene.bounds, view });
+    this.stage.show(scene.group, { pickables: scene.pickables, blocker: scene.blocker, bounds: scene.bounds, view });
     // arriving in a city from the map of the country: come down from above
     if (cityId && from === 'country' && !this.views.has(key)) {
       this.stage.view.zoom = Math.min(scene.bounds.maxZoom, view.zoom * 2.2);
@@ -271,12 +271,44 @@ class World {
     if (at) this.stage.flyTo({ x: at.x, z: at.z, zoom: Math.min(this.stage.view.zoom, 34) }, 500);
   }
 
-  /** Canvas pixel of a plot or building (tests click there). */
+  /** Canvas pixel of the middle of a city, plot or building. */
   screenOf(pick) {
     const at = this.current?.locate?.(pick);
     if (!at) return null;
     this.stage.renderNow();
     return this.stage.project(at.x, 0.2, at.z);
+  }
+
+  /**
+   * A canvas pixel where a click reaches the given city, plot or building
+   * from where the camera stands — or null when it is hidden behind something
+   * (tests click there).
+   */
+  reach(pick) {
+    const centre = this.current?.locate?.(pick);
+    if (!centre) return null;
+    this.stage.renderNow();
+    const same = (hit) => !!hit && hit.kind === pick.kind && hit.id === pick.id && hit.district === pick.district && hit.lot === pick.lot;
+    const lot = this.current.plotOf?.(pick);
+    const points = [centre];
+    if (lot) {
+      // a grid of points over the plot, the middle ones first
+      const cos = Math.cos(lot.ry);
+      const sin = Math.sin(lot.ry);
+      for (const u of [0, -0.25, 0.25, -0.4, 0.4]) {
+        for (const v of [0, -0.25, 0.25, -0.4, 0.4]) {
+          const lx = u * lot.w;
+          const lz = v * lot.d;
+          points.push({ x: lot.x + lx * cos + lz * sin, z: lot.z - lx * sin + lz * cos });
+        }
+      }
+    }
+    for (const p of points) {
+      const px = this.stage.project(p.x, 0.1, p.z);
+      if (px.x < 8 || px.y < 8 || px.x > this.stage.width - 8 || px.y > this.stage.height - 8) continue;
+      if (same(this.stage.pick(px.x, px.y))) return px;
+    }
+    return null;
   }
 }
 

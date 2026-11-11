@@ -55,7 +55,11 @@ async function worldReady(page, key) {
   await page.waitForFunction((k) => window.hossa.world3d?.key === k && !window.hossa.world3d.stage.flying, key, { timeout: 30000 });
 }
 
-/** Bring a city, plot or building of the 3D world to the middle of the view and return where it is on the page. */
+/**
+ * Bring a city, plot or building of the 3D world to the middle of the view
+ * and return a point of the page where a click reaches it. What the town
+ * hides from one side is looked at from another, the way a player would.
+ */
 async function worldPoint(page, pick) {
   await page.evaluate((p) => {
     const app = window.hossa;
@@ -63,12 +67,17 @@ async function worldPoint(page, pick) {
     app.render();
     app.world3d.focus(p);
   }, pick);
-  await page.waitForFunction(() => !window.hossa.world3d.stage.flying);
-  return page.evaluate((p) => {
-    const at = window.hossa.world3d.screenOf(p);
-    const box = document.querySelector('.world-gl').getBoundingClientRect();
-    return { x: box.left + at.x, y: box.top + at.y };
-  }, pick);
+  for (let turn = 0; turn < 4; turn++) {
+    await page.waitForFunction(() => !window.hossa.world3d.stage.flying);
+    const at = await page.evaluate((p) => {
+      const at = window.hossa.world3d.reach(p);
+      const box = document.querySelector('.world-gl').getBoundingClientRect();
+      return at && { x: box.left + at.x, y: box.top + at.y };
+    }, pick);
+    if (at) return at;
+    await page.evaluate(() => window.hossa.world3d.rotate(1));
+  }
+  throw new Error(`nothing reaches ${JSON.stringify(pick)} from any side`);
 }
 
 /** Click a city, plot or building of the 3D world. */

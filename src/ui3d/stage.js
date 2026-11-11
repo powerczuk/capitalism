@@ -123,6 +123,7 @@ export class Stage {
     this.limits = { minX: -100, maxX: 100, minZ: -100, maxZ: 100, minZoom: 14, maxZoom: 220 };
     this.content = null;
     this.pickables = [];
+    this.blocker = null;
     this.mode = 'day';
     this.animating = false;
     this.still = false; // too slow to animate (see PACE_LONG_SHARE); a new scene gets a new chance
@@ -159,13 +160,16 @@ export class Stage {
   /**
    * Put a world on the stage.
    * @param {import('./three.js').Object3D} group
-   * @param {{bounds?: object, pickables?: object[], view?: object}} [opts]
+   * @param {{bounds?: object, pickables?: object[], view?: object, blocker?: (ray: object, limit: number) => number}} [opts]
+   *        `pickables`: meshes whose `userData.pick` a click returns (the list may change while on show);
+   *        `blocker`: how far along a ray something that cannot be picked stands in the way (Infinity = nothing)
    */
   show(group, opts = {}) {
     if (this.content) this.scene.remove(this.content);
     this.content = group;
     if (group) this.scene.add(group);
     this.pickables = opts.pickables ?? [];
+    this.blocker = opts.blocker ?? null;
     if (opts.bounds) Object.assign(this.limits, opts.bounds);
     if (opts.view) Object.assign(this.view, opts.view);
     this.tween = null;
@@ -352,7 +356,10 @@ export class Stage {
     for (const hit of hits) {
       if (!hit.object.visible) continue;
       const target = hit.object.userData.pick;
-      if (target) return target;
+      if (!target) continue;
+      // what cannot be picked may still hide what can: a plot behind a tower is out of reach
+      if (this.blocker && this.blocker(this.raycaster.ray, hit.distance) < hit.distance - 0.05) return null;
+      return target;
     }
     return null;
   }
