@@ -108,7 +108,10 @@ polecenie `build` przyjmuje opcjonalne `lot`, a bez niego bierze pierwszą
 wolną. Dzielnica może powiedzieć, gdzie leży na planie miasta, polem `ring`:
 `'core'` (śródmieście), `'inner'`, `'outer'` (domyślnie), `'sector'`
 (wydzielona strefa, jak przemysłowa) albo `'country'` (duże działki za
-miastem). Plan miasta sam rezerwuje dla niej działki.
+miastem). Plan miasta sam rezerwuje dla niej działki. Siatka ulic rośnie
+z potrzebami (do 19 × 19 kwartałów), a działki wiejskie mieszczą się w dwóch
+pierścieniach wokół miasta; czego plan nie zmieści, wypisuje w `plan.short`
+i ustawia w rzędzie na skraju mapy.
 
 ## Model 3D
 
@@ -160,6 +163,10 @@ registerModel(
   poprzedniego. `b.rand()` daje powtarzalne liczby losowe, więc ten sam
   budynek zawsze wygląda tak samo.
 - Zwrócenie `{ smoke: [[x, y, z]] }` ustawia nad kominem dym.
+- Budynek klika się po tym, co faktycznie narysujesz (i po całej jego
+  działce przy ziemi), więc model nie potrzebuje żadnych „pól trafień”.
+- Model, który rzuci wyjątek, nie zatrzyma gry: w mieście stanie zamiast
+  niego zwykły budynek, a powód trafi do konsoli jako ostrzeżenie.
 - Podgląd bez gry: `dev/models.html?only=drugstore&levels=1,2,3`
   (`&night=1` — noc); całe miasto: `dev/city.html`.
 - `npm test` sprawdza, czy każdy typ budynku ma model, czy model mieści się

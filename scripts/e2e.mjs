@@ -257,6 +257,8 @@ async function flows() {
   const before = (await building(storeId)).slots[0].price;
   await page.click('[data-act=slotPriceStep][data-dir="1"]');
   check((await building(storeId)).slots[0].price > before, `${name}: price stepper`);
+  // let the row redraw with the stepped price first: nobody types within the same frame as their click
+  await page.waitForFunction(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(() => done(true)))));
   await page.fill(`#price-${storeId}-0`, '1.05');
   await page.press(`#price-${storeId}-0`, 'Enter');
   check(Math.abs((await building(storeId)).slots[0].price - 1.05) < 1e-9, `${name}: typed price`);

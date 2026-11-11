@@ -65,13 +65,17 @@ Pełniejszy opis mechanik jest w grze, w widoku **Poradnik**.
 | Obrót o ćwierć | przyciski na pasku, klawisze `Q` i `E` |
 | Wejście do miasta | kliknij miasto na mapie kraju; strzałka przy nazwie wraca |
 | Budowa | kliknij wolną działkę (przycisk działek je podświetla) |
-| Własny obiekt | kliknij go — otwiera się panel zarządzania |
-| Obiekt rywala | kliknij — karta mówi, czyj jest |
+| Własny obiekt | kliknij go albo jego nazwę — otwiera się panel zarządzania |
+| Obiekt rywala | kliknij — karta mówi, czyj jest (`Esc` ją zamyka) |
 | Dane miasta | przycisk listy otwiera szufladę z dzielnicami i rynkiem |
 
 Budynki mają kolor spółki, rosną z każdym poziomem rozbudowy, a w trakcie
 budowy stoją w rusztowaniach. Miasto zabudowuje się wraz z liczbą
 mieszkańców. Ciemny motyw interfejsu to w świecie gry noc.
+
+Kliknięcie trafia w to, co widać: budynek łapie się po jego bryle, a działka
+schowana za wieżowcem nie da się kliknąć „przez” niego — wystarczy obrócić
+widok. Nazwy miast i własnych obiektów są też przyciskami dla klawiatury.
 
 Przycisk mapy na pasku przełącza na **widok płaski** (2D) — ten sam, który
 włącza się sam, gdy przeglądarka nie obsługuje WebGL. Wybór jest
