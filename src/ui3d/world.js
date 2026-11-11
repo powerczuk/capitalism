@@ -50,6 +50,12 @@ class World {
     this.pace = 0;
     this.labels = new Map();
 
+    // A name can be clicked (or reached with Tab) like the thing it names.
+    this.overlay.addEventListener('click', (event) => {
+      const el = event.target.closest('.world-label');
+      const pick = el && this.labels.get(el.dataset.id)?.at.pick;
+      if (pick) this.onPick(pick);
+    });
     this.stage.on('pick', (target) => this.onPick(target));
     this.stage.on('hover', (target, at) => this.onHover(target, at));
     this.stage.on('frame', (dt) => {
@@ -197,7 +203,9 @@ class World {
       seen.add(item.id);
       let label = this.labels.get(item.id);
       if (!label) {
-        const el = document.createElement('div');
+        const el = document.createElement('button');
+        el.type = 'button';
+        el.dataset.id = item.id;
         this.overlay.appendChild(el);
         label = { el };
         this.labels.set(item.id, label);

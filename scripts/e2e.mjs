@@ -359,7 +359,9 @@ async function world() {
     return { city: city.id, rival: rival?.id, owner: game.state.companies[rival?.co]?.name, lot };
   });
   check(!!target.rival, `${name}: after a year some rival has a finished building`);
-  await worldClick(page, { kind: 'city', id: target.city });
+  // The name over a city is a button: clicking it goes down to the city, like clicking the city itself.
+  await worldPoint(page, { kind: 'city', id: target.city });
+  await page.click(`.world-label-city[data-id="${target.city}"]`);
   await worldReady(page, target.city);
   check((await S(() => window.hossa.world3d.current.highlight?.visible)) === true, `${name}: a company without buildings is shown the free plots`);
 
@@ -415,6 +417,11 @@ async function world() {
   await worldClick(page, { kind: 'building', id: mine });
   await page.waitForSelector('.panel');
   check((await S(() => window.hossa.ui.panel.id)) === mine, `${name}: clicking the own building opens its panel`);
+  await page.click('[data-act=closePanel]');
+  await page.waitForFunction(() => !document.querySelector('.panel'));
+  await page.click(`.world-label-own[data-id="${mine}"]`);
+  await page.waitForSelector('.panel');
+  check((await S(() => window.hossa.ui.panel.id)) === mine, `${name}: clicking the name over the own building opens its panel too`);
   await page.click('[data-act=closePanel]');
   await S(() => {
     const app = window.hossa;

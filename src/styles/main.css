@@ -1641,11 +1641,19 @@ table.data {
   border-radius: 999px;
   background: color-mix(in srgb, var(--surface) 90%, transparent);
   color: var(--ink);
+  font: inherit;
   font-size: 12px;
   font-weight: 600;
   line-height: 1.5;
   white-space: nowrap;
+  cursor: pointer;
+  pointer-events: auto;
   will-change: transform;
+}
+
+.world-label:hover {
+  border-color: var(--accent);
+  background: var(--surface);
 }
 
 .world-label-own::before {

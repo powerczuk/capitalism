@@ -270,7 +270,7 @@ export class CountryScene {
     return this.cities.map((city) => {
       const p = this.at(city);
       const mine = app.me ? app.game.buildingsIn(city.id).filter((b) => b.co === app.me.id).length : 0;
-      return { id: city.id, x: p.x, y: 3.2 + this.radius(city) * 0.5, z: p.z, text: city.name, cls: `world-label-city${mine ? ' mine' : ''}` };
+      return { id: city.id, x: p.x, y: 3.2 + this.radius(city) * 0.5, z: p.z, text: city.name, cls: `world-label-city${mine ? ' mine' : ''}`, pick: { kind: 'city', id: city.id } };
     });
   }
 

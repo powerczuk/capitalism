@@ -67,7 +67,7 @@ function hash(text) {
 /**
  * Build the geometries of one building.
  * @param {{id: string, kind?: string, model?: string}|string} type building type (or a model id)
- * @param {{level?: number, color?: number, lot?: {w: number, d: number}, seed?: string|number, night?: boolean}} [opts]
+ * @param {{level?: number, color?: number, lot?: {w: number, d: number}, seed?: string|number, night?: boolean, progress?: number}} [opts]
  * @returns {{geometries: object, extras: object, triangles: number}}
  */
 export function buildModel(type, opts = {}) {
@@ -80,6 +80,7 @@ export function buildModel(type, opts = {}) {
     level: Math.max(1, Math.min(3, Math.round(opts.level ?? 1))),
     color: opts.color ?? 0x2a78d6,
     lot: opts.lot ?? { w: 5, d: 5 },
+    progress: opts.progress, // construction sites: how far the work has got (0 → 1)
     rand: b.rand,
     type: def,
   };

@@ -5,6 +5,7 @@
 //   const scene = new CityScene({ content, game, city, materials: stage.materials });
 //   stage.show(scene.group, { pickables: scene.pickables, bounds: scene.bounds, view: scene.view });
 //   scene.sync(game);            // after every change of the game; returns true when something was redrawn
+//                                // (a building under construction is a site that rises in eight stages)
 //   scene.update(dt, pace);      // every frame: traffic and smoke
 //
 // What can be clicked carries `userData.pick`:
@@ -30,6 +31,9 @@ function hash(text) {
   for (let i = 0; i < text.length; i++) h = Math.imul(h ^ text.charCodeAt(i), 16777619);
   return h >>> 0;
 }
+
+/** How far the work on a construction site has got at each of its stages (0 → 1). */
+const SITE_STEPS = [0.08, 0.2, 0.35, 0.5, 0.64, 0.78, 0.9, 0.96];
 
 /** What lies on a plot that is not for sale yet, by where its district is. */
 const RESERVE = { core: 'park', inner: 'park', outer: 'meadow', sector: 'warehouse', country: 'meadow' };
@@ -194,7 +198,7 @@ export class CityScene {
     const color = companyColor(owner?.color ?? 0);
     const site = stage.startsWith('site');
     const model = site
-      ? buildModel('site', { color, lot, seed: `${this.seed}|${b.id}`, level: 1 + Number(stage.slice(4)) })
+      ? buildModel('site', { color, lot, seed: `${this.seed}|${b.id}`, progress: SITE_STEPS[Number(stage.slice(4))] })
       : buildModel(type, { level: b.level, color, lot, seed: `${this.seed}|${b.id}` });
     const node = groupOf(model.geometries, this.materials);
     let height = model.geometries.solid?.boundingBox.max.y ?? 1;
@@ -227,7 +231,7 @@ export class CityScene {
       seen.add(b.id);
       const owner = state.companies[b.co];
       const stage = !game.isReady(b)
-        ? `site${Math.max(0, Math.min(2, Math.floor((3 * (state.day - b.built)) / Math.max(1, b.ready - b.built))))}`
+        ? `site${Math.max(0, Math.min(SITE_STEPS.length - 1, Math.floor((SITE_STEPS.length * (state.day - b.built)) / Math.max(1, b.ready - b.built))))}`
         : b.up
           ? 'up'
           : 'ok';
@@ -280,7 +284,7 @@ export class CityScene {
     for (const b of app.game.buildingsIn(this.city.id)) {
       if (b.co !== me.id) continue;
       const at = this.anchor(b.id);
-      if (at) out.push({ id: b.id, ...at, text: app.buildingName(b), cls: 'world-label-own', color: `var(--series-${(me.color % 8) + 1})` });
+      if (at) out.push({ id: b.id, ...at, text: app.buildingName(b), cls: 'world-label-own', color: `var(--series-${(me.color % 8) + 1})`, pick: { kind: 'building', id: b.id } });
     }
     return out;
   }
