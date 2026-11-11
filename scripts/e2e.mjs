@@ -1,6 +1,8 @@
-// Browser smoke test: starts the game in headless Chromium, plays through the
-// first steps a new player takes and visits every view, failing on any
-// console error or sideways page overflow.
+// Browser test: starts the game in headless Chromium, plays through the first
+// steps a new player takes, visits every view (failing on any console error
+// or sideways page overflow) and then clicks through the deeper management
+// flows: factory and recipe, suppliers, prices, research, advertising, bank,
+// shares, renaming and demolition.
 //
 //   npm run test:e2e            (needs Playwright: npm i -D playwright && npx playwright install chromium)
 //   npm run test:e2e -- --phone  also run at phone width
@@ -113,8 +115,148 @@ async function run(name, viewport) {
   console.log(`${failures.length ? '✗' : '✓'} ${name}`);
 }
 
+/** The deeper management flows, driven by clicks the way a player does them. */
+async function flows() {
+  const name = 'flows';
+  const browser = await chromium.launch();
+  const page = await browser.newPage({ viewport: { width: 1360, height: 860 } });
+  const problems = [];
+  page.on('console', (m) => m.type() === 'error' && problems.push(m.text()));
+  page.on('pageerror', (e) => problems.push(e.message));
+  const S = (fn, arg) => page.evaluate(fn, arg);
+  const building = (id) => S((x) => window.hossa.game.state.buildings[x], id);
+  const modalClosed = () => page.waitForFunction(() => !document.querySelector('.modal'));
+
+  await page.goto(url, { waitUntil: 'networkidle' });
+  await page.click('[data-act=draftOpen]');
+  await page.selectOption('#start-capital', 'rich');
+  await page.fill('#start-seed', 'flows');
+  await page.click('#new-game button[type=submit]');
+  await page.waitForSelector('.app');
+
+  // A store and a factory in the same city.
+  await S(() => window.hossa.go('map', window.hossa.game.cities()[1].id));
+  await page.click('[data-act=openBuild][data-district=residential]');
+  await page.click('[data-act=buildHere][data-type=supermarket]');
+  await page.waitForSelector('.panel');
+  await page.click('[data-act=pickProduct][data-slot="0"]');
+  await page.click('[data-act=chooseProduct][data-product=bread]');
+  const storeId = await S(() => window.hossa.ui.panel.id);
+  await page.click('[data-act=closePanel]');
+  await page.click('[data-act=openBuild][data-district=industrial]');
+  await page.click('[data-act=buildHere][data-type=factory]');
+  await page.waitForSelector('.panel');
+  const factoryId = await S(() => window.hossa.ui.panel.id);
+  await page.click('[data-act=pickRecipe][data-line="0"]');
+  await page.click('[data-act=chooseRecipe][data-recipe=bread]');
+  await page.waitForFunction(() => document.querySelectorAll('.panel .unit:not(.unit-empty)').length === 1);
+  check((await building(factoryId)).lines[0]?.recipe === 'bread', `${name}: recipe chosen`);
+  await page.check(`#sell-${factoryId}-0`);
+  await page.fill(`#lprice-${factoryId}-0`, '0,70');
+  await page.press(`#lprice-${factoryId}-0`, 'Tab');
+  const line = (await building(factoryId)).lines[0];
+  check(line.sell === true && Math.abs(line.price - 0.7) < 1e-9, `${name}: wholesale offer set (decimal comma accepted)`);
+
+  // After construction: switch the shelf to the own factory through the picker.
+  await S(() => {
+    for (let i = 0; i < 80; i++) window.hossa.game.tick();
+    window.hossa.render();
+  });
+  await S((id) => window.hossa.openBuilding(id), storeId);
+  await page.click('[data-act=pickSource][data-slot="0"]');
+  await page.click(`[data-act=chooseSource][data-src="${factoryId}:0"]`);
+  await modalClosed();
+  check((await building(storeId)).slots[0].src === `${factoryId}:0`, `${name}: shelf supplied by the own factory`);
+
+  // Prices.
+  const before = (await building(storeId)).slots[0].price;
+  await page.click('[data-act=slotPriceStep][data-dir="1"]');
+  check((await building(storeId)).slots[0].price > before, `${name}: price stepper`);
+  await page.fill(`#price-${storeId}-0`, '1.05');
+  await page.press(`#price-${storeId}-0`, 'Enter');
+  check(Math.abs((await building(storeId)).slots[0].price - 1.05) < 1e-9, `${name}: typed price`);
+  await page.check(`#auto-${storeId}-0`);
+  check((await building(storeId)).slots[0].auto === true, `${name}: auto pricing`);
+
+  // Renaming must never turn into markup.
+  await page.click('[data-act=renameStart]');
+  await page.fill(`#rename-${storeId}`, 'Sklep <i>pierwszy</i>');
+  await page.press(`#rename-${storeId}`, 'Enter');
+  await page.waitForTimeout(150);
+  check((await building(storeId)).name === 'Sklep <i>pierwszy</i>', `${name}: rename stored`);
+  check((await page.$('.panel-title i')) === null, `${name}: names are rendered as text`);
+  await page.click('[data-act=closePanel]');
+
+  // Research, advertising, bank, shares.
+  await page.click('[data-act=openBuild][data-district=industrial]');
+  await page.click('[data-act=buildHere][data-type=lab]');
+  await page.waitForSelector('.panel');
+  const labId = await S(() => window.hossa.ui.panel.id);
+  await page.selectOption(`#lab-product-${labId}-0`, 'bread');
+  await page.selectOption(`#lab-budget-${labId}-0`, '200000');
+  const lab = (await building(labId)).labs[0];
+  check(lab?.product === 'bread' && lab.budget === 200000, `${name}: lab team assigned`);
+  await page.click('[data-act=closePanel]');
+
+  await S(() => window.hossa.go('brands'));
+  await page.selectOption('#ads-bread', '50000');
+  check((await S(() => window.hossa.me.ads.bread)) === 50000, `${name}: advertising budget`);
+
+  await S(() => {
+    window.hossa.ui.tabs.finance = 'bank';
+    window.hossa.go('finance');
+  });
+  await page.selectOption('#loan-amount', '2000000');
+  await page.click('[data-act=borrow]');
+  check((await S(() => window.hossa.me.loan)) === 2000000, `${name}: loan taken`);
+  await page.click('[data-act=repayAll]');
+  check((await S(() => window.hossa.me.loan)) === 0, `${name}: loan repaid`);
+
+  await S(() => window.hossa.go('stocks'));
+  await page.click('[data-act=openTrade][data-mode=buy]');
+  await page.click('[data-act=tradeGo]');
+  await modalClosed();
+  const held = () =>
+    S(() => {
+      const me = window.hossa.me;
+      return window.hossa.game.companies().reduce((n, c) => n + (c.shares.held[me.id] || 0), 0);
+    });
+  check((await held()) > 0, `${name}: shares bought`);
+  await page.click('[data-act=openTrade][data-mode=sell]');
+  await page.click('[data-act=tradeGo]');
+  await modalClosed();
+  check((await held()) < 20000 + 1, `${name}: shares sold`);
+  await page.click('[data-act=openTrade][data-mode=buyback]');
+  await page.click('[data-act=tradeGo]');
+  await modalClosed();
+  check((await S(() => window.hossa.me.shares.total)) < 1_000_000, `${name}: buyback`);
+
+  // Demolition asks first.
+  await S((id) => window.hossa.openBuilding(id), labId);
+  await page.click('[data-act=demolishAsk]');
+  check((await building(labId)) !== undefined, `${name}: demolition waits for confirmation`);
+  await page.click('[data-act=confirmOk]');
+  await page.waitForTimeout(150);
+  check((await building(labId)) === undefined, `${name}: demolished`);
+  check((await page.$('.panel')) === null, `${name}: panel closed after demolition`);
+
+  // A year later the store sells bread made in the own factory.
+  const sells = await S((id) => {
+    const app = window.hossa;
+    for (let i = 0; i < 360; i++) app.game.tick();
+    app.render();
+    return app.game.state.buildings[id].slots[0].by === app.me.id;
+  }, storeId);
+  check(sells, `${name}: own-made goods reach the shelf`);
+
+  check(problems.length === 0, `${name}: console errors:\n  ${problems.join('\n  ')}`);
+  await browser.close();
+  console.log(`${failures.some((f) => f.startsWith(name)) ? '✗' : '✓'} ${name}`);
+}
+
 await run('desktop', { width: 1360, height: 860 });
 if (process.argv.includes('--phone')) await run('phone', { width: 390, height: 800 });
+await flows();
 server.close();
 
 if (failures.length) {

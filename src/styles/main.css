@@ -525,11 +525,13 @@ dt {
 .stepper input {
   width: 92px;
   text-align: right;
+  font-variant-numeric: tabular-nums;
 }
 
 input.short {
   width: 100px;
   text-align: right;
+  font-variant-numeric: tabular-nums;
 }
 
 .pill {

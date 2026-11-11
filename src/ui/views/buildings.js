@@ -1,7 +1,7 @@
 // "Company" view (list of the player's buildings) and the building panel.
 
 import { flag, html } from '../dom.js';
-import { L, t, tn } from '../i18n.js';
+import { L, getLocale, t, tn } from '../i18n.js';
 import { money, num, pct, price, score } from '../format.js';
 import { icon } from '../icons.js';
 import { meter, sparkline } from '../charts.js';
@@ -15,6 +15,12 @@ import { diagText } from './overview.js';
 
 const KIND_ORDER = ['retail', 'producer', 'research'];
 const LAB_BUDGETS = [50_000, 100_000, 200_000, 400_000, 800_000];
+
+/** A price as editable text, with the decimal mark of the current language. */
+const priceField = (value) => (getLocale() === 'pl' ? value.toFixed(2).replace('.', ',') : value.toFixed(2));
+
+/** Reads a typed price; accepts both "1,25" and "1.25". Returns NaN when it is not a number. */
+const parsePrice = (text) => Number(String(text).trim().replace(/\s/g, '').replace(',', '.'));
 
 /** Human-readable name of a supply source. */
 export function sourceName(game, src) {
@@ -160,7 +166,7 @@ function shelfCard(app, b, slot, index) {
       <span class="field-label">${t('price')}</span>
       <span class="stepper">
         <button type="button" class="icon-btn" data-act="slotPriceStep" data-building="${b.id}" data-slot="${index}" data-dir="-1" aria-label="${t('price.lower')}"${flag('disabled', slot.auto)}>${icon('minus', 16)}</button>
-        <input id="price-${b.id}-${index}" type="number" inputmode="decimal" step="0.01" min="0.01" value="${slot.price.toFixed(2)}" data-change="slotPrice" data-building="${b.id}" data-slot="${index}"${flag('disabled', slot.auto)} />
+        <input id="price-${b.id}-${index}" type="text" inputmode="decimal" autocomplete="off" value="${priceField(slot.price)}" data-change="slotPrice" data-building="${b.id}" data-slot="${index}"${flag('disabled', slot.auto)} />
         <button type="button" class="icon-btn" data-act="slotPriceStep" data-building="${b.id}" data-slot="${index}" data-dir="1" aria-label="${t('price.raise')}"${flag('disabled', slot.auto)}>${icon('plus', 16)}</button>
       </span>
       <span class="muted small">
@@ -287,7 +293,7 @@ function lineCard(app, b, line, index) {
             <input id="sell-${b.id}-${index}" type="checkbox" data-change="lineSell" data-building="${b.id}" data-line="${index}"${flag('checked', line.sell)} />
             <span>${t('line.sell.on')}</span>
           </label>
-          <input id="lprice-${b.id}-${index}" class="short" type="number" inputmode="decimal" step="0.01" min="0.01" value="${line.price.toFixed(2)}" data-change="linePrice" data-building="${b.id}" data-line="${index}" aria-label="${t('line.sell.price')}" />
+          <input id="lprice-${b.id}-${index}" class="short" type="text" inputmode="decimal" autocomplete="off" value="${priceField(line.price)}" data-change="linePrice" data-building="${b.id}" data-line="${index}" aria-label="${t('line.sell.price')}" />
           <span class="muted small">${product.importable ? t('line.sell.import', { price: price(importPrice(game, product)) }) : ''}</span>
         </dd>
       </div>
@@ -448,8 +454,9 @@ export const buildingActions = {
     app.cmd('clearSlot', { building: d.building, slot: Number(d.slot) });
   },
   slotPrice(app, d, el) {
-    const value = Number(String(el.value).replace(',', '.'));
+    const value = parsePrice(el.value);
     if (value > 0) app.cmd('setSlotPrice', { building: d.building, slot: Number(d.slot), price: Math.round(value * 100) / 100 });
+    else app.toast(t('err.badPrice'), 'bad');
   },
   slotPriceStep(app, d) {
     const slot = app.game.state.buildings[d.building]?.slots?.[Number(d.slot)];
@@ -468,8 +475,9 @@ export const buildingActions = {
     app.cmd('setLineSale', { building: d.building, line: Number(d.line), sell: el.checked });
   },
   linePrice(app, d, el) {
-    const value = Number(String(el.value).replace(',', '.'));
-    if (value > 0) app.cmd('setLineSale', { building: d.building, line: Number(d.line), price: value });
+    const value = parsePrice(el.value);
+    if (value > 0) app.cmd('setLineSale', { building: d.building, line: Number(d.line), price: Math.round(value * 100) / 100 });
+    else app.toast(t('err.badPrice'), 'bad');
   },
   // --- labs ---
   labProduct(app, d, el) {
