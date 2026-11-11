@@ -2247,6 +2247,37 @@ button.lot-btn:hover {
   font-size: 13px;
 }
 
+/* what the pricing assistant is doing with a shelf on "auto" */
+.price-auto {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.price-auto-move {
+  flex: none;
+  margin-top: 2px;
+  color: var(--ink-3);
+}
+
+.price-auto-up .price-auto-move {
+  color: var(--accent);
+}
+
+.price-auto-down .price-auto-move {
+  color: var(--info);
+}
+
+.price-auto .muted {
+  display: block;
+  font-size: 12px;
+}
+
 .facts-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

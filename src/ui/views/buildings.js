@@ -11,7 +11,7 @@ import { upgradeCost, upkeepOf } from '../../sim/construction.js';
 import { brandOf, marketSnapshot, slotCapacity } from '../../sim/market.js';
 import { importPrice, lineCustomers, lineSrc, parseSrc, quote, SUP, techOf } from '../../sim/supply.js';
 import { researchGain } from '../../sim/research.js';
-import { shelfPrice } from '../../ai/analysis.js';
+import { assistantAdvice } from '../../ai/assistant.js';
 import { diagText } from './overview.js';
 
 const KIND_ORDER = ['retail', 'producer', 'research'];
@@ -133,6 +133,32 @@ function supplyPill(ref) {
   return entry ? pill(t(entry[0]), entry[1]) : '';
 }
 
+/**
+ * What the pricing assistant is doing with a shelf on "auto", in a sentence
+ * or two: which way the price is going, and what it is reacting to — supply,
+ * demand or the competition.
+ */
+function autoNote(app, b, slot, rivals) {
+  const { game } = app;
+  if (!slot.why) return html`<div class="price-auto"><span>${t(game.isReady(b) ? 'shelf.auto.wait' : 'shelf.auto.closed')}</span></div>`;
+  const heading = slot.aim > slot.price * 1.004 ? 'up' : slot.aim < slot.price * 0.996 ? 'down' : 'hold';
+  const cheapest = rivals.filter((o) => o.stock > 0).reduce((best, o) => (!best || o.price < best.price ? o : best), null);
+  const reason =
+    slot.why === 'rival' && cheapest
+      ? t('shelf.auto.rival', { who: game.state.companies[cheapest.co]?.name ?? '', price: price(cheapest.price) })
+      : t(`shelf.auto.${slot.why === 'rival' ? 'alone' : slot.why}`);
+  const ago = slot.moved != null ? game.state.day - slot.moved : null;
+  return html`<div class="price-auto price-auto-${heading}">
+    <span class="price-auto-move">${icon(heading === 'up' ? 'up' : heading === 'down' ? 'down' : 'steady', 16)}</span>
+    <span>
+      <b>${t(`shelf.auto.${heading}`, { price: price(slot.aim) })}</b> ${reason}
+      ${ago != null && slot.from > 0
+        ? html`<span class="muted">${t(ago < 1 ? 'shelf.auto.changedToday' : 'shelf.auto.changed', { from: price(slot.from), to: price(slot.price), days: tn('n.days', Math.max(1, ago)) })}</span>`
+        : ''}
+    </span>
+  </div>`;
+}
+
 function shelfCard(app, b, slot, index) {
   const { game, me, content } = app;
   if (!slot) {
@@ -155,8 +181,7 @@ function shelfCard(app, b, slot, index) {
   // What the pricing assistant would charge — shown as a hint on manual shelves.
   let advice = null;
   if (!slot.auto && game.isReady(b) && slot.qty > 0) {
-    const best = shelfPrice(game, me, b, index, { mode: 'optimize' });
-    const suggested = best ? Math.round(best.price * 100) / 100 : null;
+    const suggested = assistantAdvice(game, me, b, index)?.target;
     if (suggested && Math.abs(suggested / slot.price - 1) > 0.02) advice = suggested;
   }
   return html`<li class="unit" data-key="slot-${index}">
@@ -182,6 +207,7 @@ function shelfCard(app, b, slot, index) {
         ${t('shelf.ref', { price: price(snap.ref) })}${bestRival ? html` · ${t('shelf.rival', { price: price(bestRival.price) })}` : ''}
       </span>
     </div>
+    ${slot.auto ? autoNote(app, b, slot, rivals) : ''}
     ${advice
       ? html`<div class="price-advice">
           <span>${t('shelf.advice', { price: price(advice) })}</span>

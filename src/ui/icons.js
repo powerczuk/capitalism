@@ -28,6 +28,8 @@ const PATHS = {
   save: '<path d="M5 3h11l4 4v14H4V4a1 1 0 0 1 1-1z"/><path d="M8 3v6h7V3M8 21v-7h8v7"/>',
   trash: '<path d="M4 7h16M10 7V4h4v3M6 7l1 14h10l1-14"/><path d="M10 11v6M14 11v6"/>',
   up: '<path d="M12 20V5"/><path d="m5 11 7-7 7 7"/>',
+  down: '<path d="M12 4v15"/><path d="m5 13 7 7 7-7"/>',
+  steady: '<path d="M4 12h15"/><path d="m13 5 7 7-7 7"/>',
   edit: '<path d="m4 20 1-4L16.5 4.5a2.1 2.1 0 0 1 3 3L8 19z"/>',
   swap: '<path d="M4 8h14l-4-4M20 16H6l4 4"/>',
   info: '<circle cx="12" cy="12" r="9"/><path d="M12 11v6"/><circle cx="12" cy="7.6" r="0.6" fill="currentColor"/>',

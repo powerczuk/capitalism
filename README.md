@@ -47,7 +47,11 @@ Niczego nie trzeba budować ani konfigurować.
    działek, i zbuduj sklep (supermarket, dom towarowy albo salon
    elektroniki).
 2. Postaw towar na **półkach** — na początek z importu — i uruchom czas
-   (przyciski tempa u góry, spacja, klawisze 1–4).
+   (przyciski tempa u góry, spacja, klawisze 1–4). Ceny możesz ustawiać sam
+   albo włączyć **auto-cenę**: asystent codziennie szuka najbardziej
+   opłacalnej ceny, reagując na podaż (własna produkcja, która nie nadąża),
+   popyt (kolejki, mody, koniunktura) i ceny konkurencji, i pisze na półce,
+   czym się kieruje.
 3. Gdy sklepy zarabiają, zbuduj **fabrykę**, potem **farmy i kopalnie**:
    własny łańcuch dostaw obniża koszty i podnosi jakość.
 4. **Reklama** buduje markę, **centrum badawcze** podnosi technologię.

@@ -113,6 +113,9 @@ export function checkState(content, state) {
       need(isNumberOrNull(slot.d) && isNumberOrNull(slot.s) && isNumber(slot.so) && isNumber(slot.cl), where);
       need(isNumber(slot.rev) && isNumber(slot.cogs) && isNumber(slot.units) && (slot.src == null || typeof slot.src === 'string'), where);
       need(isNumberOrNull(slot.cap), where);
+      // notes of the pricing assistant (shelves on "auto" only)
+      need((slot.aim == null || isNumber(slot.aim)) && (slot.from == null || isNumber(slot.from)) && (slot.moved == null || isNumber(slot.moved)), where);
+      need(slot.why == null || typeof slot.why === 'string', where);
     }
     for (const line of b.lines || []) {
       if (line == null) continue;

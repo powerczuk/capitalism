@@ -212,7 +212,13 @@ export const retailCommands = [
       return ownSlot(game, co, building, slot) ? null : fail('err.notYours');
     },
     run(game, co, { building, slot, auto }) {
-      ownSlot(game, co, building, slot).slot.auto = !!auto;
+      const s = ownSlot(game, co, building, slot).slot;
+      s.auto = !!auto;
+      // whatever the assistant was doing is forgotten: next time it starts afresh
+      delete s.aim;
+      delete s.why;
+      delete s.from;
+      delete s.moved;
       return {};
     },
   },

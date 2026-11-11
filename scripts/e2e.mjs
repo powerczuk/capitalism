@@ -264,6 +264,15 @@ async function flows() {
   check(Math.abs((await building(storeId)).slots[0].price - 1.05) < 1e-9, `${name}: typed price`);
   await page.check(`#auto-${storeId}-0`);
   check((await building(storeId)).slots[0].auto === true, `${name}: auto pricing`);
+  // A day later the assistant has taken the shelf over and says what it is going by.
+  await S(() => {
+    window.hossa.game.tick();
+    window.hossa.render();
+  });
+  const noted = await page.waitForSelector('.price-auto b', { timeout: 3000 }).then(() => true, () => false);
+  const auto = (await building(storeId)).slots[0];
+  check(noted && auto.aim > 0 && typeof auto.why === 'string', `${name}: the pricing assistant explains itself on the shelf (${JSON.stringify({ noted, aim: auto.aim, why: auto.why })})`);
+  check(await page.$eval(`#price-${storeId}-0`, (el) => el.disabled), `${name}: a shelf on auto cannot be priced by hand`);
 
   // Renaming must never turn into markup.
   await page.click('[data-act=renameStart]');
