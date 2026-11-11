@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Model viewer — Wielka Hossa</title>
+    <style>
+      html, body { margin: 0; height: 100%; background: #cfe0e6; font: 13px system-ui, sans-serif; }
+      #stage { position: fixed; inset: 0; }
+      #stage canvas { display: block; width: 100%; height: 100%; outline: none; }
+      #help { position: fixed; left: 12px; bottom: 10px; padding: 6px 10px; border-radius: 6px; background: rgba(255, 255, 255, 0.8); color: #223; }
+      #help code { font: 12px ui-monospace, monospace; }
+    </style>
+  </head>
+  <body>
+    <!--
+      Every building model of the 3D view, side by side, at levels 1–3.
+      A tool for people who draw models (see docs/MODDING.md):
+
+        npm start   →   http://localhost:5173/dev/models.html
+
+      ?only=supermarket,factory   show just these models
+      ?levels=2                   just these levels
+      ?night=1                    night lighting
+      ?rot=1                      camera turned by quarter steps (0–3)
+      ?zoom=30                    how many world units fit the height of the window
+      ?color=3                    owner's colour slot (0–7)
+      ?lot=6x5                    plot size to build on
+    -->
+    <div id="stage"></div>
+    <div id="help">drag to pan · wheel to zoom · <code>Q</code>/<code>E</code> to turn · <code>?only=…&amp;night=1</code></div>
+    <script type="module">
+      import { Group, Mesh, MeshStandardMaterial, PlaneGeometry } from '../src/ui3d/three.js';
+      import { Stage, groupOf } from '../src/ui3d/stage.js';
+      import { Builder } from '../src/ui3d/kit.js';
+      import { C, companyColor } from '../src/ui3d/palette.js';
+      import { buildModel, modelIds, plotOf } from '../src/ui3d/models/all.js';
+
+      const q = new URLSearchParams(location.search);
+      const only = q.get('only')?.split(',').filter(Boolean);
+      const levels = (q.get('levels') || '1,2,3').split(',').map(Number);
+      const lotArg = q.get('lot')?.split('x').map(Number);
+      const ids = modelIds().filter((id) => !id.startsWith('kind:') || only?.includes(id)).filter((id) => !only || only.includes(id));
+
+      const stage = new Stage(document.getElementById('stage'));
+      const world = new Group();
+      const ground = new Mesh(new PlaneGeometry(600, 600), new MeshStandardMaterial({ color: C.grass, roughness: 1 }));
+      ground.rotation.x = -Math.PI / 2;
+      ground.receiveShadow = true;
+      world.add(ground);
+
+      const info = { models: [], triangles: 0 };
+      let z = 0;
+      let maxX = 0;
+      const plates = new Builder(1);
+      for (const [row, id] of ids.entries()) {
+        let x = 0;
+        let depth = 0;
+        for (const level of levels) {
+          const lot = lotArg ? { w: lotArg[0], d: lotArg[1] } : plotOf(id);
+          const model = buildModel(id, { level, color: companyColor(Number(q.get('color') ?? row)), lot, seed: `${id}-${level}` });
+          const g = groupOf(model.geometries, stage.materials);
+          g.position.set(x + lot.w / 2, 0, z - lot.d / 2);
+          world.add(g);
+          plates.box(x + lot.w / 2, -0.02, z - lot.d / 2, lot.w, 0.03, lot.d, C.grassDark, { ao: 1 });
+          plates.box(x + lot.w / 2, -0.02, z + 0.9, lot.w, 0.04, 1.6, C.asphalt, { ao: 1 }); // the street in front
+          info.models.push({ id, level, triangles: model.triangles, extras: model.extras });
+          info.triangles += model.triangles;
+          x += lot.w + 1.5;
+          depth = Math.max(depth, lot.d);
+        }
+        maxX = Math.max(maxX, x);
+        z -= depth + 3.4;
+      }
+      world.add(groupOf(plates.build(), stage.materials, { shadows: false }));
+
+      if (q.get('night')) stage.setMode('night');
+      const span = Math.max(maxX * 0.62, -z * 0.9, 8);
+      stage.show(world, {
+        bounds: { minX: -20, maxX: maxX + 20, minZ: z - 20, maxZ: 20 },
+        view: { x: maxX / 2 - 0.75, z: z / 2 + 2, zoom: Number(q.get('zoom')) || span, rot: Number(q.get('rot')) || 0 },
+      });
+      stage.renderNow();
+      window.__stage = stage;
+      window.__info = info;
+      console.log(`${info.models.length} models, ${info.triangles} triangles`);
+    </script>
+  </body>
+</html>

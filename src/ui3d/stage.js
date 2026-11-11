@@ -13,7 +13,9 @@ import {
   AmbientLight,
   Color,
   DirectionalLight,
+  Group,
   HemisphereLight,
+  Mesh,
   MeshBasicMaterial,
   MeshStandardMaterial,
   OrthographicCamera,
@@ -44,6 +46,31 @@ export function createMaterials() {
     glow: new MeshBasicMaterial({ vertexColors: true, toneMapped: false }),
     water: new MeshStandardMaterial({ vertexColors: true, roughness: 0.28, metalness: 0.12 }),
   };
+}
+
+/**
+ * Meshes for the geometries a Builder made (see kit.js `build()`), one per
+ * layer, wearing the shared materials. Everything casts and takes shadows
+ * except the glow layer, which lives on its own camera layer (night only).
+ */
+export function groupOf(geometries, materials, { shadows = true } = {}) {
+  const group = new Group();
+  for (const name of Object.keys(geometries)) {
+    const mesh = new Mesh(geometries[name], materials[name] ?? materials.solid);
+    if (name === 'glow') mesh.layers.set(GLOW_LAYER);
+    else {
+      mesh.castShadow = shadows && name !== 'water';
+      mesh.receiveShadow = true;
+    }
+    mesh.name = name;
+    group.add(mesh);
+  }
+  return group;
+}
+
+/** Free the GPU buffers of everything under `object` (materials are shared and stay). */
+export function disposeTree(object) {
+  object.traverse((node) => node.geometry?.dispose());
 }
 
 export class Stage {
