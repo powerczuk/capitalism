@@ -106,13 +106,19 @@ class World {
     const mode = isDark() ? 'night' : 'day';
     if (mode !== this.stage.mode) this.stage.setMode(mode);
 
+    // Redraw only what changed: this runs after every render of the page,
+    // several times a second while the clock is running.
     const scene = this.current;
     if (scene.sync(game, app.me)) this.stage.invalidate(true);
-    scene.setShowLots?.(!!app.ui.world?.lots && !!app.me);
+    const lots = !!app.ui.world?.lots && !!app.me;
+    if (scene.setShowLots && lots !== scene.showLots) {
+      scene.setShowLots(lots);
+      this.stage.invalidate();
+    }
     this.pace = reducedMotion() ? 0 : PACE[app.ui.speed] ?? 0;
     this.stage.setAnimating(this.pace > 0 && !app.ui.modal);
     this.refreshLabels();
-    this.stage.invalidate();
+    this.placeLabels();
   }
 
   open(key, cityId) {

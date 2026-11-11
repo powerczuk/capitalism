@@ -40,6 +40,15 @@ const clamp = (x, lo, hi) => (x < lo ? lo : x > hi ? hi : x);
 const ease = (t) => (t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2);
 
 /** Materials shared by every model (see the layers in kit.js). */
+// Where drawing is done by the processor (no graphics card, or a blocked
+// one) the page keeps stalling while the picture is being made. Moving
+// traffic is not worth that: when, two spells in a row, more than a third of
+// the time goes into frames that took over a tenth of a second, the stage
+// stops animating and draws only when something changes.
+const PACE_SPELL_MS = 1500;
+const PACE_LONG_MS = 100;
+const PACE_LONG_SHARE = 0.35;
+
 export function createMaterials() {
   return {
     solid: new MeshStandardMaterial({ vertexColors: true, roughness: 0.94, metalness: 0 }),
@@ -83,7 +92,7 @@ export class Stage {
   /** @param {HTMLElement} container the element the canvas fills */
   constructor(container) {
     this.container = container;
-    this.listeners = { pick: [], hover: [], frame: [], view: [] };
+    this.listeners = { pick: [], hover: [], frame: [], view: [], still: [] };
 
     this.renderer = new WebGLRenderer({ antialias: true, alpha: false, powerPreference: 'high-performance' });
     this.renderer.shadowMap.enabled = true;
@@ -116,6 +125,8 @@ export class Stage {
     this.pickables = [];
     this.mode = 'day';
     this.animating = false;
+    this.still = false; // too slow to animate (see PACE_LONG_SHARE); a new scene gets a new chance
+    this.pace = { ms: 0, long: 0, strikes: 0 };
     this.dirty = true;
     this.shadowAt = { x: Infinity, z: Infinity, zoom: 0 };
     this.width = 1;
@@ -159,6 +170,8 @@ export class Stage {
     if (opts.view) Object.assign(this.view, opts.view);
     this.tween = null;
     this.hovered = null;
+    this.still = false;
+    this.pace = { ms: 0, long: 0, strikes: 0 };
     this._clampView();
     this.invalidate(true);
   }
@@ -185,7 +198,11 @@ export class Stage {
     this.invalidate(true);
   }
 
-  /** Keep rendering every frame (for moving things) or only when something changes. */
+  /**
+   * Keep rendering every frame (for moving things) or only when something
+   * changes. Where frames come too slowly the stage stays still regardless
+   * (`stage.still`).
+   */
   setAnimating(on) {
     this.animating = !!on;
   }
@@ -453,10 +470,28 @@ export class Stage {
 
   // --- loop ----------------------------------------------------------------------------
 
+  /** Note how long an animated frame took; give up animating when they keep coming slowly. */
+  _watchPace(ms) {
+    const pace = this.pace;
+    const took = Math.min(2000, ms);
+    pace.ms += took;
+    if (took > PACE_LONG_MS) pace.long += took;
+    if (pace.ms < PACE_SPELL_MS) return;
+    // two spells in a row: one long pause (a hidden tab, a scene being built) is not slowness
+    pace.strikes = pace.long > pace.ms * PACE_LONG_SHARE ? pace.strikes + 1 : 0;
+    pace.ms = 0;
+    pace.long = 0;
+    if (pace.strikes >= 2) {
+      this.still = true;
+      this._emit('still');
+    }
+  }
+
   _frame(now) {
     if (this.disposed) return;
     this.raf = requestAnimationFrame(this._frame);
-    const dt = Math.min(0.1, (now - this.last) / 1000);
+    const elapsed = now - this.last;
+    const dt = Math.min(0.1, elapsed / 1000);
     this.last = now;
     if (!this.canvas.isConnected) return; // parked while another screen is shown
     if (this.tween) {
@@ -472,12 +507,17 @@ export class Stage {
       this.dirty = true;
       this._emit('view');
     }
-    if (this.animating) this.dirty = true;
+    const moving = this.animating && !this.still;
+    if (moving) {
+      this.dirty = true;
+      if (this.wasMoving) this._watchPace(elapsed);
+    }
+    this.wasMoving = moving;
     if (!this.dirty) return;
     this.dirty = false;
     this._placeCamera();
     this._placeSun();
-    this._emit('frame', dt, now);
+    this._emit('frame', moving ? dt : 0, now);
     this.renderer.render(this.scene, this.camera);
   }
 
