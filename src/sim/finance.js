@@ -104,7 +104,7 @@ function runMonthly(game) {
       co.m.tax += tax;
       co.lossCarry = 0;
     } else {
-      co.lossCarry = -taxable;
+      co.lossCarry = Math.max(0, -taxable);
     }
     const assets = assetsOf(game, co);
     const report = { d: day };

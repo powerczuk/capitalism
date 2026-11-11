@@ -5,9 +5,9 @@
 // own buildings and — if the owner allows it — other companies draw from.
 
 import { fail } from '../engine/game.js';
-import { blend, ema, EPS, roundSig } from '../engine/util.js';
+import { blend, ema, EPS, isIndex, roundSig } from '../engine/util.js';
 import { modifier, resourceQuality, wageIndex } from './world.js';
-import { canUseSource, defaultSource, techOf } from './supply.js';
+import { agreeSource, canUseSource, defaultSource, techOf, validPrice } from './supply.js';
 import { lineCount, ownBuilding, writeOffLine } from './construction.js';
 
 function runLine(game, b, co, city, line, wage, procMod) {
@@ -85,7 +85,7 @@ export const productionSystem = {
 
 function ownLine(game, co, building, index) {
   const b = ownBuilding(game, co, building);
-  if (!b || b.kind !== 'producer') return null;
+  if (!b || b.kind !== 'producer' || !isIndex(b.lines, index)) return null;
   const line = b.lines[index];
   return line ? { b, line } : null;
 }
@@ -103,9 +103,9 @@ export const productionCommands = [
       const recipe = content.recipes.find(recipeId);
       if (!recipe || recipe.building !== b.type) return fail('err.badRecipe');
       if (recipe.raw && resourceQuality(state.cities[b.city], recipe.output) == null) return fail('err.noResource');
-      if (price != null && !(price > 0)) return fail('err.badPrice');
+      if (price != null && !validPrice(price)) return fail('err.badPrice');
       for (const id in sources || {}) {
-        if (!(id in recipe.inputs)) return fail('err.badSource');
+        if (!Object.hasOwn(recipe.inputs, id)) return fail('err.badSource');
         if (sources[id] != null && !canUseSource(game, co, id, sources[id])) return fail('err.badSource');
       }
       return null;
@@ -137,11 +137,12 @@ export const productionCommands = [
           idle: null, // 'inputs' | 'full' | null — why the line stood still
         };
         for (const id in recipe.inputs) {
-          line.inputs[id] = { src: defaultSource(game, co, b.city, id), qty: 0, q: 0, uc: 0, sup: 0 };
+          line.inputs[id] = { src: null, qty: 0, q: 0, uc: 0, sup: 0 };
+          agreeSource(game, co, line.inputs[id], id, defaultSource(game, co, b.city, id));
         }
         b.lines[index] = line;
       }
-      for (const id in sources || {}) line.inputs[id].src = sources[id];
+      for (const id in sources || {}) agreeSource(game, co, line.inputs[id], id, sources[id]);
       if (sell != null) line.sell = !!sell;
       if (price != null) line.price = price;
       return {};
@@ -168,12 +169,12 @@ export const productionCommands = [
     check(game, co, { building, line, input, src }) {
       const found = ownLine(game, co, building, line);
       if (!found) return fail('err.notYours');
-      if (!found.line.inputs[input]) return fail('err.badSource');
+      if (typeof input !== 'string' || !Object.hasOwn(found.line.inputs, input)) return fail('err.badSource');
       if (src != null && !canUseSource(game, co, input, src)) return fail('err.badSource');
       return null;
     },
     run(game, co, { building, line, input, src }) {
-      ownLine(game, co, building, line).line.inputs[input].src = src ?? null;
+      agreeSource(game, co, ownLine(game, co, building, line).line.inputs[input], input, src);
       return {};
     },
   },
@@ -183,7 +184,7 @@ export const productionCommands = [
     /** params: { building, line, sell?: boolean, price?: number } */
     check(game, co, { building, line, price }) {
       if (!ownLine(game, co, building, line)) return fail('err.notYours');
-      if (price != null && !(price > 0 && Number.isFinite(price))) return fail('err.badPrice');
+      if (price != null && !validPrice(price)) return fail('err.badPrice');
       return null;
     },
     run(game, co, { building, line, sell, price }) {

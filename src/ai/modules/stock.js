@@ -9,9 +9,10 @@ const MIN_LOT = 1000;
 
 /** Largest number of shares of `target` that `cash` buys (price impact included). */
 function affordable(game, target, cash, limit) {
+  const lot = Math.max(1, Math.min(MIN_LOT, limit)); // the last shares needed may be fewer than a lot
   let qty = Math.min(limit, Math.floor(cash / (target.price * 1.05)));
-  while (qty >= MIN_LOT && tradeCost(game, target, qty) > cash) qty = Math.floor(qty * 0.9);
-  return qty >= MIN_LOT ? qty : 0;
+  while (qty >= lot && tradeCost(game, target, qty) > cash) qty = Math.floor(qty * 0.9);
+  return qty >= lot ? qty : 0;
 }
 
 function finishTakeovers(ctx, rivals) {
@@ -24,14 +25,38 @@ function finishTakeovers(ctx, rivals) {
   return false;
 }
 
+/** Shares of `co` in the hands of its largest corporate shareholder. */
+function largestStake(co, rivals) {
+  let held = 0;
+  for (const other of rivals) held = Math.max(held, co.shares.held[other.id] || 0);
+  return held;
+}
+
+/**
+ * Would cancelling `qty` shares leave the company out of a raider's reach?
+ * A buyback shrinks the share count, so every stake grows with it — the
+ * founder's and the raider's alike.
+ */
+function safeAfterBuyback(game, co, rivals, qty) {
+  const S = game.content.balance.stock;
+  const total = co.shares.total - qty;
+  if (co.shares.founder / total > S.control) return true;
+  // Otherwise nobody may be able to cross the line: not now, not with what is left on the market.
+  return (largestStake(co, rivals) + publicFloat(co) - qty) / total <= S.control;
+}
+
+/**
+ * A raider is circling: put the company out of reach with a buyback. Only one
+ * that gets all the way there helps — a smaller one would hand the raider a
+ * bigger stake for free.
+ */
 function defend(ctx, rivals) {
   const { game, co } = ctx;
   const S = game.content.balance.stock;
-  let threat = 0;
-  for (const other of rivals) threat = Math.max(threat, stakeOf(co, other.id));
-  if (threat < 0.15 || co.shares.founder / co.shares.total > S.control) return false;
-  const qty = affordable(game, co, Math.max(0, ctx.freeCash()) * 0.7, publicFloat(co));
-  return qty > 0 && ctx.act('buyback', { qty }).ok;
+  if (largestStake(co, rivals) / co.shares.total < 0.15 || co.shares.founder / co.shares.total > S.control) return false;
+  const qty = Math.min(publicFloat(co), Math.floor(co.shares.total - co.shares.founder / S.control) + 1);
+  if (qty < 1 || !safeAfterBuyback(game, co, rivals, qty)) return false;
+  return ctx.fund(tradeCost(game, co, qty)) && ctx.act('buyback', { qty }).ok;
 }
 
 function choosePrey(ctx, rivals) {
@@ -76,12 +101,15 @@ function hunt(ctx, rivals) {
   return ctx.fund(tradeCost(game, prey, qty)) && ctx.act('buyShares', { target: prey.id, qty }).ok;
 }
 
-function buyBackCheap(ctx) {
+function buyBackCheap(ctx, rivals) {
   const { game, co } = ctx;
+  const S = game.content.balance.stock;
   if (co.price > fundamentalValue(game, co) * 0.75) return false;
   const spare = ctx.freeCash() - ctx.reserve() * 2;
   if (spare <= 0) return false;
   const qty = affordable(game, co, spare * 0.5, Math.floor(publicFloat(co) * 0.2));
+  // Never shrink the share count so far that a shareholder ends up in control.
+  if (qty > 0 && largestStake(co, rivals) / (co.shares.total - qty) > S.control) return false;
   return qty > 0 && ctx.act('buyback', { qty }).ok;
 }
 
@@ -110,6 +138,6 @@ export const stockModule = {
     if (raiseCash(ctx, rivals)) return;
     if (profile.rank < 3) return; // weaker levels only defend themselves
     if (takeovers && profile.raider && hunt(ctx, rivals)) return;
-    buyBackCheap(ctx);
+    buyBackCheap(ctx, rivals);
   },
 };

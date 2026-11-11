@@ -3,7 +3,7 @@
 
 import { clamp } from '../engine/util.js';
 import { DAYS_PER_YEAR } from '../engine/calendar.js';
-import { equityOf } from '../sim/accounting.js';
+import { earnedWorthOf } from '../sim/accounting.js';
 import { retailShare } from '../sim/stats.js';
 
 function worthGoal(id, target, years, name, desc) {
@@ -13,11 +13,12 @@ function worthGoal(id, target, years, name, desc) {
     years,
     name,
     desc,
+    measure: 'worth', // the interface explains what does not count
     check(game, co) {
-      const equity = equityOf(game, co);
-      const done = equity >= target;
+      const worth = earnedWorthOf(game, co); // money from share issues does not count
+      const done = worth >= target;
       const failed = !done && years != null && game.state.day > years * DAYS_PER_YEAR;
-      return { progress: clamp(equity / target, 0, 1), done, failed };
+      return { progress: clamp(worth / target, 0, 1), done, failed };
     },
   };
 }
@@ -53,14 +54,15 @@ export const GOALS = [
   {
     id: 'leader10',
     years: 10,
+    measure: 'worth',
     name: { pl: 'Lider po dekadzie', en: 'Leader after a decade' },
     desc: { pl: 'Po 10 latach miej najwyższą wartość netto ze wszystkich spółek.', en: 'After 10 years, have the highest net worth of all companies.' },
     check(game, co) {
       const end = 10 * DAYS_PER_YEAR;
       const { day } = game.state;
       if (day < end) return { progress: day / end };
-      const mine = equityOf(game, co);
-      const best = game.companies().every((other) => other === co || equityOf(game, other) < mine);
+      const mine = earnedWorthOf(game, co);
+      const best = game.companies().every((other) => other === co || earnedWorthOf(game, other) < mine);
       return { progress: 1, done: best, failed: !best };
     },
   },

@@ -84,6 +84,15 @@ export function equityOf(game, co) {
 }
 
 /**
+ * Net worth the company built itself: equity without the money it raised by
+ * selling new shares (buying shares back counts the other way). Goals are
+ * measured on this, so printing shares is no shortcut to a fortune.
+ */
+export function earnedWorthOf(game, co) {
+  return equityOf(game, co) - (co.raised ?? 0);
+}
+
+/**
  * Profit of the last `months` closed months, scaled to a full year.
  * Returns 0 until three months of history exist (too noisy before that).
  */

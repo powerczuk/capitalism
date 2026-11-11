@@ -2,7 +2,8 @@
 // steps a new player takes, visits every view (failing on any console error
 // or sideways page overflow) and then clicks through the deeper management
 // flows: factory and recipe, suppliers, prices, research, advertising, bank,
-// shares, renaming and demolition.
+// shares, renaming and demolition — and finally checks the safety nets
+// (instant response, saving on leaving, crash screens).
 //
 //   npm run test:e2e            (needs Playwright: npm i -D playwright && npx playwright install chromium)
 //   npm run test:e2e -- --phone  also run at phone width
@@ -254,9 +255,176 @@ async function flows() {
   console.log(`${failures.some((f) => f.startsWith(name)) ? '✗' : '✓'} ${name}`);
 }
 
+/**
+ * The shell's safety nets: clicks answer at once while the clock runs, leaving
+ * the page saves the game, a view that fails to draw offers a way back, and a
+ * failing rule stops the clock without overwriting the last good save.
+ */
+async function safety() {
+  const name = 'safety';
+  const browser = await chromium.launch();
+  const fresh = async (seed) => {
+    const page = await browser.newPage({ viewport: { width: 1360, height: 860 } });
+    await page.goto(url, { waitUntil: 'networkidle' });
+    await page.click('[data-act=draftOpen]');
+    await page.fill('#start-seed', seed);
+    await page.click('#new-game button[type=submit]');
+    await page.waitForSelector('.app');
+    return page;
+  };
+  const autosave = (page) => page.evaluate(() => JSON.parse(localStorage.getItem('wielka-hossa:save:auto')).state);
+
+  // A dialog opens on the next frame, also at full speed.
+  let page = await fresh('quick');
+  let worst = 0;
+  for (const speed of [1, 4]) {
+    await page.evaluate((s) => window.hossa.setSpeed(s), speed);
+    await page.waitForTimeout(400);
+    for (let i = 0; i < 4; i++) {
+      const took = await page.evaluate(
+        () =>
+          new Promise((done) => {
+            const start = performance.now();
+            const waited = () => performance.now() - start;
+            document.querySelector('.topbar [data-act=openMenu]').click();
+            const look = () => (document.querySelector('.modal') || waited() > 1500 ? done(waited()) : requestAnimationFrame(look));
+            requestAnimationFrame(look);
+          }),
+      );
+      worst = Math.max(worst, took);
+      await page.keyboard.press('Escape');
+      await page.waitForTimeout(90 + i * 37);
+    }
+  }
+  check(worst < 120, `${name}: a dialog took ${Math.round(worst)} ms to appear while the clock was running`);
+  await page.close();
+
+  // Going to the background saves what was done while paused.
+  page = await fresh('hide');
+  const built = await page.evaluate(() => {
+    const app = window.hossa;
+    return app.cmd('build', { type: 'supermarket', city: app.game.cities()[0].id, district: 'center' }).building;
+  });
+  check(!(await autosave(page)).buildings[built], `${name}: the autosave should not know the new store yet`);
+  await page.evaluate(() => {
+    Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'hidden' });
+    document.dispatchEvent(new Event('visibilitychange'));
+  });
+  check(!!(await autosave(page)).buildings[built], `${name}: hiding the page saves the game`);
+  await page.close();
+
+  // A view that throws shows the error and a way back to the overview.
+  page = await fresh('view');
+  await page.evaluate(() => {
+    const app = window.hossa;
+    app.content.views.get('stocks').render = () => {
+      throw new Error('view boom');
+    };
+    app.go('stocks');
+  });
+  await page.waitForSelector('.crash');
+  check((await page.textContent('.crash pre')).includes('view boom'), `${name}: the crash screen names the error`);
+  await page.click('[data-act=recover]');
+  await page.waitForSelector('.app');
+  check((await page.evaluate(() => window.hossa.ui.view)) === 'overview', `${name}: recovering leads to the overview`);
+  await page.close();
+
+  // A rule that throws stops the clock for good; the last good save stays.
+  page = await fresh('rule');
+  await page.evaluate(() => {
+    const app = window.hossa;
+    const tick = app.game.tick.bind(app.game);
+    app.game.tick = () => {
+      if (app.game.state.day >= 3) throw new Error('rule boom');
+      tick();
+    };
+    app.setSpeed(4);
+  });
+  await page.waitForSelector('.crash');
+  const stopped = await page.evaluate(() => ({
+    text: document.querySelector('.crash pre').textContent,
+    recover: !!document.querySelector('[data-act=recover]'),
+    speed: window.hossa.ui.speed,
+  }));
+  check(stopped.text.includes('rule boom') && !stopped.recover && stopped.speed === 0, `${name}: a failing rule stops the clock and shows the error`);
+  const savedDay = (await autosave(page)).day;
+  await page.evaluate(() => {
+    window.hossa.game.state.day = 999; // pretend the world got mangled
+    window.dispatchEvent(new Event('pagehide'));
+  });
+  check((await autosave(page)).day === savedDay, `${name}: a failed game must not overwrite the autosave`);
+  // The way out: back to the start screen, where the last good save can be continued.
+  await page.click('.crash [data-act=quitNow]');
+  await page.waitForSelector('.start');
+  await page.click('[data-act=loadSlot][data-slot=auto]');
+  await page.waitForSelector('.app');
+  check((await page.evaluate(() => window.hossa.game.state.day)) === savedDay, `${name}: the autosave can be continued after a failure`);
+  await page.close();
+
+  // Importing: the text survives re-renders; a broken save changes nothing; a good one loads.
+  page = await fresh('import');
+  await page.evaluate(() => {
+    for (let i = 0; i < 45; i++) window.hossa.game.tick();
+    window.hossa.save('auto');
+  });
+  const good = await page.evaluate(() => JSON.stringify(window.hossa.game.save()));
+  const openImport = async () => {
+    await page.click('.topbar [data-act=openMenu]');
+    await page.click('[data-act=openImport]');
+    await page.waitForSelector('#import-text');
+  };
+  await openImport();
+  // The way a chosen file arrives: the text is put into the field, which does not have the focus.
+  await page.evaluate(() => {
+    document.querySelector('#import-text').value = '{"v":1,"state":{"v":1,"day":7,"companies":{},"cities":{}}}';
+    window.hossa.toast('re-render'); // any redraw while the dialog is open
+  });
+  await page.waitForTimeout(250);
+  check((await page.inputValue('#import-text')).length > 20, `${name}: the import text must survive a re-render`);
+  await page.click('[data-act=importApply]');
+  await page.waitForTimeout(250);
+  const refused = await page.evaluate(() => ({ day: window.hossa.game.state.day, crash: !!document.querySelector('.crash'), companies: window.hossa.game.companies().length }));
+  check(refused.day === 45 && !refused.crash && refused.companies > 0, `${name}: a broken save must leave the running game alone (${JSON.stringify(refused)})`);
+  await page.evaluate(() => window.dispatchEvent(new Event('pagehide')));
+  check((await autosave(page)).day === 45, `${name}: a refused import must not touch the autosave`);
+  await page.evaluate(() => {
+    for (let i = 0; i < 20; i++) window.hossa.game.tick();
+    window.hossa.render();
+  });
+  await page.fill('#import-text', good);
+  await page.click('[data-act=importApply]');
+  await page.waitForFunction(() => !document.querySelector('.modal'));
+  check((await page.evaluate(() => window.hossa.game.state.day)) === 45, `${name}: a good save is imported`);
+  await page.close();
+
+  // Details of the building panel: the lab budget shown is the real one; Escape abandons a rename.
+  page = await fresh('details');
+  const lab = await page.evaluate(() => {
+    const app = window.hossa;
+    const id = app.cmd('build', { type: 'lab', city: app.game.cities()[0].id, district: 'industrial' }).building;
+    app.cmd('setLab', { building: id, lab: 0, product: 'bread', budget: 300_000 });
+    app.openBuilding(id);
+    return id;
+  });
+  await page.waitForSelector(`#lab-budget-${lab}-0`);
+  check((await page.inputValue(`#lab-budget-${lab}-0`)) === '300000', `${name}: the lab budget select shows the actual budget`);
+  await page.click('[data-act=renameStart]');
+  await page.waitForSelector(`#rename-${lab}`);
+  await page.fill(`#rename-${lab}`, 'Nie zapisuj');
+  await page.keyboard.press('Escape');
+  await page.waitForFunction((id) => !document.querySelector(`#rename-${id}`), lab);
+  check((await page.evaluate((id) => window.hossa.game.state.buildings[id].name, lab)) == null, `${name}: Escape abandons a rename`);
+  check((await page.$('.panel')) !== null, `${name}: …and keeps the panel open`);
+  await page.close();
+
+  await browser.close();
+  console.log(`${failures.some((f) => f.startsWith(name)) ? '✗' : '✓'} ${name}`);
+}
+
 await run('desktop', { width: 1360, height: 860 });
 if (process.argv.includes('--phone')) await run('phone', { width: 390, height: 800 });
 await flows();
+await safety();
 server.close();
 
 if (failures.length) {

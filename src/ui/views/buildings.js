@@ -124,6 +124,7 @@ const SUPPLY_TEXT = {
   [SUP.INVALID]: ['source.status.invalid', 'bad'],
   [SUP.NO_FUNDS]: ['source.status.noFunds', 'bad'],
   [SUP.SHORT]: ['source.status.short', 'warn'],
+  [SUP.PRICE]: ['source.status.price', 'bad'],
 };
 
 function supplyPill(ref) {
@@ -342,6 +343,7 @@ function labCard(app, b, lab, index) {
         <span class="field-label">${t('lab.budget')}</span>
         <select id="lab-budget-${b.id}-${index}" data-change="labBudget" data-building="${b.id}" data-lab="${index}"${flag('disabled', !lab)}>
           ${LAB_BUDGETS.map((x) => html`<option value="${x}"${flag('selected', (lab?.budget ?? 100_000) === x)}>${money(x)}</option>`)}
+          ${lab && !LAB_BUDGETS.includes(lab.budget) ? html`<option value="${lab.budget}" selected>${money(lab.budget)}</option>` : ''}
         </select>
       </label>
     </div>
@@ -444,6 +446,8 @@ export const buildingActions = {
     requestAnimationFrame(() => app.root.querySelector(`#rename-${CSS.escape(d.id)}`)?.select());
   },
   renameBuilding(app, d, el) {
+    // Escape abandons a rename; the field may still report its text as it goes away.
+    if (app.ui.renaming !== d.id) return;
     app.cmd('rename', { building: d.id, name: el.value });
     app.ui.renaming = null;
   },

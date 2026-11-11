@@ -82,7 +82,14 @@ function syncNode(oldNode, newNode) {
     return;
   }
   if (tag === 'TEXTAREA') {
-    if (!focused && oldNode.value !== newNode.textContent) oldNode.value = newNode.textContent;
+    // The template text is the field's default. It is pushed into the field
+    // only when it changes, so what the user typed, pasted or loaded from a
+    // file survives the re-renders in between.
+    const text = newNode.textContent;
+    if (oldNode.defaultValue !== text) {
+      oldNode.defaultValue = text;
+      if (!focused) oldNode.value = text;
+    }
     return;
   }
   syncChildren(oldNode, newNode);

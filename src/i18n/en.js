@@ -163,6 +163,7 @@ export const en = {
   'stat.share': 'Market share',
   'stat.share.sub': 'national retail',
   'steps.title': 'First steps',
+  'goal.raised': 'Capital raised by issuing shares ({amount}) does not count towards the goal.',
   'steps.store': 'Choose a city on the map and build a store.',
   'steps.shelves': 'Put goods on the shelves — imported ones to begin with.',
   'steps.time': 'Start the clock with the speed buttons at the top (or with Space).',
@@ -285,6 +286,7 @@ export const en = {
   'source.status.invalid': 'supplier unavailable',
   'source.status.noFunds': 'no funds',
   'source.status.short': 'partial deliveries',
+  'source.status.price': 'supplier raised the price',
 
   // --- selection dialogs ---
   'pick.product.title': 'What to put on the shelf?',
@@ -303,6 +305,8 @@ export const en = {
   'pick.delivered': 'Delivered cost',
   'pick.available': 'Spare capacity',
   'pick.current': 'current',
+  'pick.accept': 'Accept price',
+  'pick.source.priceUp': 'The current supplier raised its price beyond what was agreed, so deliveries have stopped. Accept the new price or choose another source.',
   'pick.ownCost': 'your production cost',
   'pick.recipe.title': 'What to produce?',
   'pick.recipe.hint': 'The estimated cost assumes the cheapest suppliers of raw materials. Quality depends on technology and on the quality of the raw materials.',
@@ -402,7 +406,7 @@ export const en = {
   'stocks.issue': 'Issue shares',
   'stocks.dividend': 'Dividend from annual profit',
   'stocks.dividend.none': 'none',
-  'stocks.mine.note': 'Whoever gathers more than {pct} of the shares can buy out the rest and absorb the company. A share buyback increases the founder’s stake; a share issue reduces it.',
+  'stocks.mine.note': 'Whoever gathers more than {pct} of the shares can buy out the rest and absorb the company. A share buyback increases the founder’s stake; a share issue reduces it. A dividend lifts the share price only once it has been paid — a promise alone is not enough.',
   'stocks.rules': 'To take over a rival, buy more than {pct} of its shares on the stock market, then buy out the remaining shareholders at a premium of {premium}.',
   'trade.size': 'Stake size',
   'trade.shares': 'Number of shares',
@@ -410,6 +414,8 @@ export const en = {
   'trade.proceeds': 'Proceeds',
   'trade.stakeAfter': 'Your stake after the trade',
   'trade.founderAfter': 'Founder’s stake after the trade',
+  'trade.rivalAfter': 'Stake of {company} after the trade',
+  'trade.handsOver': 'Careful: after this trade {company} will hold a majority of the shares and can take you over.',
   'trade.noShares': 'You hold no shares in this company.',
   'trade.noFloat': 'There are no free shares left on the market.',
   'trade.buy.title': 'Share purchase',
@@ -419,10 +425,10 @@ export const en = {
   'trade.sell.note': 'Large orders push the price down. The gain or loss goes to the profit and loss account.',
   'trade.sell.go': 'Sell',
   'trade.issue.title': 'Share issue',
-  'trade.issue.note': 'New shares sell at 8% below the share price. You raise cash, but the founder’s stake falls. The next issue is possible after six months at the earliest.',
+  'trade.issue.note': 'New shares sell at 8% below the share price. You raise cash, but the founder’s stake falls. The next issue is possible after six months at the earliest. Money from share issues does not count towards the game goal.',
   'trade.issue.go': 'Issue',
   'trade.buyback.title': 'Share buyback',
-  'trade.buyback.note': 'Shares bought back are cancelled: the founder’s stake grows and you become harder to take over.',
+  'trade.buyback.note': 'Shares bought back are cancelled, so every shareholder’s stake grows — the founder’s, but also that of anyone buying up your shares.',
   'trade.buyback.go': 'Buy back',
   'takeover.title': 'Take over {company}?',
   'takeover.text': 'Buying out the remaining shareholders costs {cost} (you have {cash}). You will take over all the buildings, cash, debts, technologies and brands of this company.',
@@ -488,7 +494,8 @@ export const en = {
   'outcome.continue': 'Keep playing',
   'outcome.menu': 'Start screen',
   'crash.title': 'Something went wrong',
-  'crash.text': 'The interface ran into an error. Refresh the page — the game saves automatically every month.',
+  'crash.text': 'The game ran into an error. Go back to the start screen and choose “Continue” to pick the game up from the last autosave.',
+  'crash.back': 'Back to overview',
 
   // --- messages ---
   'toast.started': 'Company founded. Choose a city on the map and build your first store.',
@@ -541,6 +548,7 @@ export const en = {
   'err.issueCooldown': 'Six months must pass after the last issue.',
   'err.saveInvalid': 'The save could not be read.',
   'err.saveVersion': 'This save comes from a different version of the game.',
+  'err.saveContent': 'This save uses content this game does not have (“{id}”) — probably a different set of mods.',
 
   // --- diagnostics ---
   'diag.cashNegative': 'The account is overdrawn — the bank is charging penalty interest.',
@@ -552,6 +560,7 @@ export const en = {
   'diag.shelfNoSource': '{building}: no supplier for {product}.',
   'diag.shelfBadSource': '{building}: the supplier no longer delivers “{product}”.',
   'diag.shelfNoFunds': '{building}: no funds to buy “{product}”.',
+  'diag.shelfPriceUp': '{building}: the supplier of “{product}” raised its price beyond what was agreed — deliveries are on hold.',
   'diag.shelfShort': '{building}: the supplier cannot keep up and the “{product}” shelf keeps running empty.',
   'diag.shelfBelowCost': '{building}: you are selling “{product}” below cost.',
   'diag.shelfLoss': '{building}: the “{product}” shelf made a loss.',
@@ -560,6 +569,7 @@ export const en = {
   'diag.inputNoSource': '{building}: the “{product}” line has no supplier for the raw material “{input}”.',
   'diag.inputBadSource': '{building}: the supplier of the raw material “{input}” is unavailable.',
   'diag.inputNoFunds': '{building}: no funds for the raw material “{input}”.',
+  'diag.inputPriceUp': '{building}: the supplier of “{input}” raised its price beyond what was agreed — deliveries are on hold.',
   'diag.inputShort': '{building}: short of the raw material “{input}”, the “{product}” line is slowing down.',
   'diag.lineNoBuyers': '{building}: the “{product}” warehouse is full — nobody is taking the goods.',
   'diag.labEmpty': '{building}: research teams are waiting for assignments.',
@@ -599,7 +609,7 @@ export const en = {
     'Customers compare your offer with your rivals’ and with the small local shops, which always sell at the usual price. The offer rating combines the quality and brand of the goods with how the price compares with the usual one.\nBread or detergent is bought mainly on price. With handbags and smartphones, brand and quality matter more. You will find the details of every product in the Market view.\nTurn on “Auto-price” if you would rather have an assistant look for the most profitable price for you.',
   'guide.supply.title': 'Suppliers',
   'guide.supply.text':
-    'Every shelf and every raw material in a factory has a single supplier: imports, your own production line, or a line belonging to another company that has put its goods up for sale.\nImports are always available, but expensive and of average quality. Transport is charged by distance and by the weight of the goods — imports arrive at the nearest port.',
+    'Every shelf and every raw material in a factory has a single supplier: imports, your own production line, or a line belonging to another company that has put its goods up for sale.\nImports are always available, but expensive and of average quality. Transport is charged by distance and by the weight of the goods — imports arrive at the nearest port.\nChoosing another company as supplier is an agreement on its price: if it raises the price by more than 15% and above what imports cost, deliveries stop until you accept the new price or switch to another source.',
   'guide.factories.title': 'Production',
   'guide.factories.text':
     'A factory has production lines; each one makes a single product from raw materials or intermediate goods. A product you make yourself costs noticeably less than an imported one, but a line is large — it pays off when it supplies several stores.\nFarms, mines and forestries supply raw materials only where the resources occur. The longer your own supply chain, the lower your costs.\nYou can put any surplus on the wholesale market — other companies will gladly buy for less than imports cost.',
@@ -614,7 +624,7 @@ export const en = {
     'The bank lends up to a limit that depends on net worth and profits. You pay 19% tax on profit; a loss reduces future taxes.\nIf the account stays deep in the red for a long time, or the assets do not cover the debts, the company goes bankrupt after 90 days.',
   'guide.stocks.title': 'Stock market and takeovers',
   'guide.stocks.text':
-    'Every company is listed. The share price follows book value and profits. You can buy shares in your rivals, issue your own to raise cash, or buy them back.\nWhoever gathers more than half of a company’s shares can buy out the rest and absorb it. The founder starts with 40% — a share buyback raises that stake and protects against takeover.',
+    'Every company is listed. The share price follows book value and profits. You can buy shares in your rivals, issue your own to raise cash, or buy them back. A company that pays a dividend every year is valued higher (by up to 15%).\nWhoever gathers more than half of a company’s shares can buy out the rest and absorb it. The founder starts with 40% — a share buyback raises that stake, but everyone else’s too, so it protects against a takeover only once it carries the founder past one half.',
   'guide.rivals.title': 'Rivals',
   'guide.rivals.text':
     'Computer rivals use exactly the same commands as you do. The Novice sells imports at a fixed markup. The Entrepreneur adjusts prices and builds its first factories. The Business shark optimises prices and builds full supply chains. The Tycoon does all of this faster and, on top of that, hunts weaker companies on the stock market.\nPersonality decides what a rival likes: retail, industry, research, low prices, brand or finance.',

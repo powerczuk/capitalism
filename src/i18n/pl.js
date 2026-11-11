@@ -163,6 +163,7 @@ export const pl = {
   'stat.share': 'Udział w rynku',
   'stat.share.sub': 'krajowy handel detaliczny',
   'steps.title': 'Pierwsze kroki',
+  'goal.raised': 'Kapitał z emisji akcji ({amount}) nie liczy się do celu.',
   'steps.store': 'Wybierz miasto na mapie i zbuduj sklep.',
   'steps.shelves': 'Postaw towar na półkach — na początek z importu.',
   'steps.time': 'Uruchom czas przyciskami tempa u góry (albo spacją).',
@@ -285,6 +286,7 @@ export const pl = {
   'source.status.invalid': 'dostawca niedostępny',
   'source.status.noFunds': 'brak środków',
   'source.status.short': 'niepełne dostawy',
+  'source.status.price': 'dostawca podniósł cenę',
 
   // --- okna wyboru ---
   'pick.product.title': 'Co postawić na półce?',
@@ -303,6 +305,8 @@ export const pl = {
   'pick.delivered': 'Koszt z dostawą',
   'pick.available': 'Wolne moce',
   'pick.current': 'obecny',
+  'pick.accept': 'Zaakceptuj cenę',
+  'pick.source.priceUp': 'Obecny dostawca podniósł cenę ponad uzgodnioną, więc dostawy stanęły. Zaakceptuj nową cenę albo wybierz inne źródło.',
   'pick.ownCost': 'koszt własny',
   'pick.recipe.title': 'Co produkować?',
   'pick.recipe.hint': 'Szacowany koszt zakłada najtańszych dostawców surowców. Jakość zależy od technologii i jakości surowców.',
@@ -402,7 +406,7 @@ export const pl = {
   'stocks.issue': 'Wyemituj akcje',
   'stocks.dividend': 'Dywidenda z rocznego zysku',
   'stocks.dividend.none': 'nie wypłacaj',
-  'stocks.mine.note': 'Kto zbierze ponad {pct} akcji, może wykupić resztę i wchłonąć spółkę. Skup akcji zwiększa udział założyciela, emisja go zmniejsza.',
+  'stocks.mine.note': 'Kto zbierze ponad {pct} akcji, może wykupić resztę i wchłonąć spółkę. Skup akcji zwiększa udział założyciela, emisja go zmniejsza. Dywidenda podnosi kurs dopiero wtedy, gdy zostanie wypłacona — sama zapowiedź nie wystarczy.',
   'stocks.rules': 'Aby przejąć rywala, kup na giełdzie ponad {pct} jego akcji, a potem wykup pozostałych akcjonariuszy z premią {premium}.',
   'trade.size': 'Wielkość pakietu',
   'trade.shares': 'Liczba akcji',
@@ -410,6 +414,8 @@ export const pl = {
   'trade.proceeds': 'Wpływ',
   'trade.stakeAfter': 'Twój pakiet po transakcji',
   'trade.founderAfter': 'Udział założyciela po transakcji',
+  'trade.rivalAfter': 'Pakiet spółki {company} po transakcji',
+  'trade.handsOver': 'Uwaga: po tej transakcji {company} będzie mieć większość akcji i może cię przejąć.',
   'trade.noShares': 'Nie masz akcji tej spółki.',
   'trade.noFloat': 'W obrocie nie ma już wolnych akcji.',
   'trade.buy.title': 'Kupno akcji',
@@ -419,10 +425,10 @@ export const pl = {
   'trade.sell.note': 'Duże zlecenia zbijają kurs. Zysk lub strata trafi do rachunku wyników.',
   'trade.sell.go': 'Sprzedaj',
   'trade.issue.title': 'Emisja akcji',
-  'trade.issue.note': 'Nowe akcje sprzedasz 8% poniżej kursu. Zyskasz gotówkę, ale udział założyciela spadnie. Kolejna emisja najwcześniej za pół roku.',
+  'trade.issue.note': 'Nowe akcje sprzedasz 8% poniżej kursu. Zyskasz gotówkę, ale udział założyciela spadnie. Kolejna emisja najwcześniej za pół roku. Pieniądze z emisji nie liczą się do celu gry.',
   'trade.issue.go': 'Wyemituj',
   'trade.buyback.title': 'Skup akcji własnych',
-  'trade.buyback.note': 'Skupione akcje są umarzane: udział założyciela rośnie i trudniej cię przejąć.',
+  'trade.buyback.note': 'Skupione akcje są umarzane, więc rośnie udział każdego akcjonariusza — założyciela, ale też tych, którzy skupują twoje akcje.',
   'trade.buyback.go': 'Skup',
   'takeover.title': 'Przejąć {company}?',
   'takeover.text': 'Wykup pozostałych akcjonariuszy kosztuje {cost} (masz {cash}). Przejmiesz wszystkie obiekty, gotówkę, długi, technologie i marki tej spółki.',
@@ -488,7 +494,8 @@ export const pl = {
   'outcome.continue': 'Graj dalej',
   'outcome.menu': 'Ekran startowy',
   'crash.title': 'Coś poszło nie tak',
-  'crash.text': 'Interfejs napotkał błąd. Odśwież stronę — gra zapisuje się automatycznie co miesiąc.',
+  'crash.text': 'Gra napotkała błąd. Wróć na ekran startowy i wybierz „Kontynuuj”, żeby podjąć grę od ostatniego autozapisu.',
+  'crash.back': 'Wróć do przeglądu',
 
   // --- komunikaty ---
   'toast.started': 'Spółka założona. Wybierz miasto na mapie i zbuduj pierwszy sklep.',
@@ -541,6 +548,7 @@ export const pl = {
   'err.issueCooldown': 'Od ostatniej emisji musi minąć pół roku.',
   'err.saveInvalid': 'Nie udało się odczytać zapisu.',
   'err.saveVersion': 'Ten zapis pochodzi z innej wersji gry.',
+  'err.saveContent': 'Ten zapis korzysta z treści, której nie ma w tej grze („{id}”) — pewnie z innego zestawu modów.',
 
   // --- diagnostyka ---
   'diag.cashNegative': 'Konto jest na minusie — bank nalicza karne odsetki.',
@@ -552,6 +560,7 @@ export const pl = {
   'diag.shelfNoSource': '{building}: {product} nie ma dostawcy.',
   'diag.shelfBadSource': '{building}: dostawca nie dostarcza już towaru „{product}”.',
   'diag.shelfNoFunds': '{building}: brak środków na zakup towaru „{product}”.',
+  'diag.shelfPriceUp': '{building}: dostawca towaru „{product}” podniósł cenę ponad uzgodnioną — dostawy wstrzymane.',
   'diag.shelfShort': '{building}: dostawca nie nadąża, półka „{product}” świeci pustkami.',
   'diag.shelfBelowCost': '{building}: „{product}” sprzedajesz poniżej kosztu.',
   'diag.shelfLoss': '{building}: półka „{product}” przyniosła stratę.',
@@ -560,6 +569,7 @@ export const pl = {
   'diag.inputNoSource': '{building}: linia „{product}” nie ma dostawcy surowca „{input}”.',
   'diag.inputBadSource': '{building}: dostawca surowca „{input}” jest niedostępny.',
   'diag.inputNoFunds': '{building}: brak środków na surowiec „{input}”.',
+  'diag.inputPriceUp': '{building}: dostawca surowca „{input}” podniósł cenę ponad uzgodnioną — dostawy wstrzymane.',
   'diag.inputShort': '{building}: brakuje surowca „{input}”, linia „{product}” zwalnia.',
   'diag.lineNoBuyers': '{building}: magazyn „{product}” jest pełny — nikt nie odbiera towaru.',
   'diag.labEmpty': '{building}: zespoły badawcze czekają na zadania.',
@@ -599,7 +609,7 @@ export const pl = {
     'Klienci porównują twoją ofertę z rywalami i z lokalnymi sklepikami, które zawsze sprzedają po zwyczajowej cenie. Ocena oferty łączy jakość i markę towaru z tym, jak cena ma się do zwyczajowej.\nPieczywo czy proszek kupuje się głównie ceną. Przy torebkach i smartfonach ważniejsze są marka i jakość. Szczegóły każdego produktu znajdziesz w widoku Rynek.\nZaznacz „Auto-cena”, jeśli wolisz, by asystent sam szukał najbardziej opłacalnej ceny.',
   'guide.supply.title': 'Dostawcy',
   'guide.supply.text':
-    'Każda półka i każdy surowiec w fabryce ma jednego dostawcę: import, własną linię produkcyjną albo linię innej spółki, która wystawiła towar na sprzedaż.\nImport jest zawsze dostępny, ale drogi i przeciętnej jakości. Za transport płacisz od odległości i wagi towaru — import przypływa do najbliższego portu.',
+    'Każda półka i każdy surowiec w fabryce ma jednego dostawcę: import, własną linię produkcyjną albo linię innej spółki, która wystawiła towar na sprzedaż.\nImport jest zawsze dostępny, ale drogi i przeciętnej jakości. Za transport płacisz od odległości i wagi towaru — import przypływa do najbliższego portu.\nWybór obcego dostawcy to umowa co do ceny: jeśli podniesie ją o ponad 15% i powyżej ceny importu, dostawy staną, dopóki nie zaakceptujesz nowej ceny albo nie zmienisz źródła.',
   'guide.factories.title': 'Produkcja',
   'guide.factories.text':
     'Fabryka ma linie produkcyjne; każda wytwarza jeden wyrób z surowców lub półproduktów. Własny wyrób kosztuje wyraźnie mniej niż ten z importu, ale linia jest duża — opłaca się, gdy zaopatruje kilka sklepów.\nFarmy, kopalnie i leśnictwa dostarczają surowce tylko tam, gdzie występują zasoby. Im dłuższy własny łańcuch dostaw, tym niższe koszty.\nNadwyżki możesz wystawić na rynek hurtowy — inne spółki chętnie kupią taniej niż z importu.',
@@ -614,7 +624,7 @@ export const pl = {
     'Bank pożycza do limitu zależnego od wartości netto i zysków. Od zysku płacisz 19% podatku; strata obniża przyszłe podatki.\nJeśli konto długo jest głęboko na minusie albo majątek nie pokrywa długów, po 90 dniach spółka bankrutuje.',
   'guide.stocks.title': 'Giełda i przejęcia',
   'guide.stocks.text':
-    'Każda spółka jest notowana. Kurs podąża za wartością księgową i zyskami. Możesz kupować akcje rywali, emitować własne, żeby zdobyć gotówkę, albo je skupować.\nKto zbierze ponad połowę akcji spółki, może wykupić resztę i ją wchłonąć. Założyciel ma na starcie 40% — skup akcji własnych podnosi ten udział i chroni przed przejęciem.',
+    'Każda spółka jest notowana. Kurs podąża za wartością księgową i zyskami. Możesz kupować akcje rywali, emitować własne, żeby zdobyć gotówkę, albo je skupować. Spółka, która co roku wypłaca dywidendę, jest wyceniana wyżej (do 15%).\nKto zbierze ponad połowę akcji spółki, może wykupić resztę i ją wchłonąć. Założyciel ma na starcie 40% — skup akcji własnych podnosi ten udział, ale też pakiety pozostałych akcjonariuszy, więc chroni przed przejęciem dopiero wtedy, gdy da założycielowi ponad połowę.',
   'guide.rivals.title': 'Rywale',
   'guide.rivals.text':
     'Komputerowi rywale używają dokładnie tych samych poleceń co ty. Nowicjusz handluje importem po stałej marży. Przedsiębiorca dopasowuje ceny i stawia pierwsze fabryki. Rekin biznesu optymalizuje ceny i buduje pełne łańcuchy dostaw. Magnat robi to wszystko szybciej, a do tego poluje na słabsze spółki na giełdzie.\nCharakter decyduje o tym, co rywal lubi: handel, przemysł, badania, niskie ceny, markę albo finanse.',

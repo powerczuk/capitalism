@@ -6,7 +6,7 @@ import { money, num, price, score } from '../format.js';
 import { icon } from '../icons.js';
 import { button, coName, emoji, emptyState, pill, productName } from '../components.js';
 import { brandOf, forecast, marketSnapshot, slotCapacity, storePull } from '../../sim/market.js';
-import { defaultSource, importPrice, lineEstimate, listSources, quote } from '../../sim/supply.js';
+import { defaultSource, importPrice, lineEstimate, listSources, quote, SUP } from '../../sim/supply.js';
 import { resourceQuality } from '../../sim/world.js';
 import { buildingTitle } from '../components.js';
 import { sourceName } from './buildings.js';
@@ -102,6 +102,7 @@ export function sourceDialog(app, { building, slot, line, input }) {
   return html`${head(t('pick.source.title', { product: L(product.name) }))}
     <div class="modal-body">
       <p class="muted">${t('pick.source.hint')}</p>
+      ${ref.sup === SUP.PRICE ? html`<div class="notice notice-warn">${t('pick.source.priceUp')}</div>` : ''}
       ${sources.length === 0
         ? emptyState(t('pick.source.none'))
         : html`<div class="table-wrap">
@@ -136,10 +137,10 @@ export function sourceDialog(app, { building, slot, line, input }) {
                     ${product.type === 'consumer' ? html`<td class="num" data-label="${t('brand')}">${score(brandOf(game, s.by, productId))}</td>` : ''}
                     <td class="num" data-label="${t('pick.available')}">${s.kind === 'import' ? '∞' : html`<span>${num(s.free)} <span class="muted small">${t('perDay')}</span></span>`}</td>
                     <td class="num">
-                      ${current
+                      ${current && ref.sup !== SUP.PRICE
                         ? pill(t('pick.current'), 'good')
                         : html`<button type="button" class="btn btn-primary btn-sm" data-act="chooseSource" data-src="${s.src}" ${Object.entries(data).map(([k, v]) => html` data-${k}="${v}"`)}>
-                            ${t('choose')}
+                            ${t(current ? 'pick.accept' : 'choose')}
                           </button>`}
                     </td>
                   </tr>`;

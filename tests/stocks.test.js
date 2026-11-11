@@ -2,9 +2,11 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { createContent, Game } from '../src/setup.js';
-import { equityOf } from '../src/sim/accounting.js';
+import { earnedWorthOf, equityOf, pretaxOf } from '../src/sim/accounting.js';
 import { publicFloat, stakeOf } from '../src/sim/company.js';
-import { holdersOf, takeoverCost, tradeCost } from '../src/sim/stocks.js';
+import { bankrupt } from '../src/sim/finance.js';
+import { goalStatus } from '../src/sim/goals.js';
+import { dividendPremium, fundamentalValue, holdersOf, takeoverCost, tradeCost } from '../src/sim/stocks.js';
 
 const content = createContent();
 
@@ -107,4 +109,97 @@ test('dividends: paid from yearly profit to corporate shareholders', () => {
   const paid = me.reports.at(-1).divIn + me.m.divIn;
   assert.ok(paid > 0, 'the shareholder received a dividend');
   assert.ok(game.state.news.some((n) => n.k === 'news.dividend'));
+});
+
+test('dividends: a promise alone does not lift the share price, a payment does', () => {
+  const { game, target } = twoCompanies();
+  game.run(100); // three monthly reports: the valuation now looks beyond book value
+  const base = fundamentalValue(game, target);
+  assert.ok(game.exec(target.id, 'setDividend', { ratio: 0.5 }).ok);
+  assert.equal(fundamentalValue(game, target), base, 'declared but never paid');
+  game.run(259);
+  for (const r of target.reports) r.profit = 1_000_000; // a profitable year on paper
+  game.tick(); // year end: the dividend is paid
+  assert.equal(target.paid, 0.5);
+  assert.equal(dividendPremium(target), 0.15);
+  game.exec(target.id, 'setDividend', { ratio: 0 });
+  assert.equal(dividendPremium(target), 0, 'withdrawing the promise ends the premium');
+  game.exec(target.id, 'setDividend', { ratio: 0.5 });
+  assert.equal(dividendPremium(target), 0.15);
+  game.run(360); // a year without profit: nothing to pay out
+  assert.equal(target.paid, 0);
+  assert.equal(dividendPremium(target), 0, 'so does a year without a payment');
+});
+
+test('bankruptcy: shareholders write off what they paid for the shares', () => {
+  const { game, me, target } = twoCompanies();
+  me.cash = 1e8;
+  const { cost } = game.exec(me.id, 'buyShares', { target: target.id, qty: 100_000 });
+  assert.ok(Math.abs(me.basis[target.id] - cost) < 1e-6);
+  bankrupt(game, target);
+  assert.equal(target.alive, false);
+  assert.equal(me.basis[target.id], undefined);
+  assert.ok(Math.abs(me.m.invest + cost) < 1e-6, 'the loss shows up in the income statement');
+});
+
+test('takeover: other shareholders are paid out once, with no second write-off', () => {
+  const game = Game.create(content, { seed: 'three', cityCount: 3, player: { name: 'Raider' }, rivals: [{ level: 'novice' }, { level: 'novice' }], events: false });
+  const me = game.human;
+  const [target, third] = game.companies().filter((c) => !c.human);
+  target.ai = null;
+  third.ai = null;
+  me.cash = 5e8;
+  third.cash = 1e8;
+  const paid = game.exec(third.id, 'buyShares', { target: target.id, qty: 50_000 }).cost;
+  while (stakeOf(target, me.id) <= 0.5) game.exec(me.id, 'buyShares', { target: target.id, qty: Math.min(60_000, publicFloat(target)) });
+  const payout = 50_000 * target.price * content.balance.stock.takeoverPremium;
+  const cash = third.cash;
+  assert.ok(game.exec(me.id, 'takeover', { target: target.id }).ok);
+  assert.ok(Math.abs(third.cash - cash - payout) < 1e-6);
+  assert.ok(Math.abs(third.m.invest - (payout - paid)) < 1e-6, 'gain = payout minus purchase cost, booked once');
+  assert.equal(third.basis[target.id], undefined);
+});
+
+test('goals: money raised by issuing shares is not earned worth', () => {
+  const S = content.balance.stock;
+  const game = Game.create(content, { seed: 'print', cityCount: 3, player: { name: 'Printer' }, rivals: [], events: false, goal: 'worth50' });
+  const me = game.human;
+  const earned = earnedWorthOf(game, me);
+  let issues = 0;
+  for (let i = 0; i < 12; i++) {
+    if (game.exec(me.id, 'issueShares', { qty: Math.floor(me.shares.total * S.issueMaxShare) }).ok) issues += 1;
+    game.run(S.issueCooldown);
+  }
+  assert.ok(issues >= 10);
+  assert.ok(equityOf(game, me) > 50e6, 'the cash pile itself is past the target');
+  assert.ok(Math.abs(earnedWorthOf(game, me) - earned) < 1e-3, 'but nothing was earned');
+  assert.equal(game.state.outcome, null, 'so the goal is not reached');
+  assert.ok(goalStatus(game).progress < 0.5);
+  // Buying shares back returns that money and changes nothing either.
+  assert.ok(game.exec(me.id, 'buyback', { qty: 100_000 }).ok);
+  assert.ok(Math.abs(earnedWorthOf(game, me) - earned) < 1e-3);
+});
+
+test('takeover: the buyer’s books add up, also when the target held shares', () => {
+  const game = Game.create(content, { seed: 'books', cityCount: 3, player: { name: 'Raider' }, rivals: [{ level: 'novice' }, { level: 'novice' }], events: false });
+  const me = game.human;
+  const [target, third] = game.companies().filter((c) => !c.human);
+  target.ai = null;
+  third.ai = null;
+  me.cash = 5e8;
+  // The target owns a slice of the buyer itself and of a third company.
+  assert.ok(game.exec(target.id, 'buyShares', { target: me.id, qty: 50_000 }).ok);
+  assert.ok(game.exec(target.id, 'buyShares', { target: third.id, qty: 30_000 }).ok);
+  while (stakeOf(target, me.id) <= 0.5) game.exec(me.id, 'buyShares', { target: target.id, qty: Math.min(60_000, publicFloat(target)) });
+
+  // Without buildings a company is worth its cash, less debt, plus what it paid for shares.
+  const books = () => me.cash - me.loan + Object.values(me.basis).reduce((a, b) => a + b, 0);
+  const before = books();
+  const profit = pretaxOf(me.m);
+  const shares = me.shares.total;
+  assert.ok(game.exec(me.id, 'takeover', { target: target.id }).ok);
+  assert.equal(me.shares.total, shares - 50_000, 'own shares that came back are cancelled');
+  assert.equal(third.shares.held[me.id], 30_000, 'the stake in the third company moves to the buyer');
+  assert.ok(Math.abs(me.basis[third.id] - 30_000 * third.price) < 1e-6, 'at what it is worth today');
+  assert.ok(Math.abs(books() - before - (pretaxOf(me.m) - profit)) < 1e-4, 'the one-off item explains the whole change');
 });

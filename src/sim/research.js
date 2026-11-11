@@ -2,6 +2,7 @@
 // which raises the quality of everything it manufactures from then on.
 
 import { fail } from '../engine/game.js';
+import { isIndex } from '../engine/util.js';
 import { overdraftLimit } from './accounting.js';
 import { labCount, ownBuilding } from './construction.js';
 import { techOf } from './supply.js';
@@ -62,7 +63,7 @@ export const researchCommands = [
       const p = content.products.find(product);
       if (!p || p.type === 'raw') return fail('err.badProduct');
       const G = content.balance.research;
-      if (typeof budget !== 'number' || !(budget > 0) || budget > G.maxBudget) return fail('err.badValue');
+      if (typeof budget !== 'number' || !(budget >= 1) || budget > G.maxBudget) return fail('err.badValue');
       return null;
     },
     run(game, co, { building, lab, product, budget }) {
@@ -75,7 +76,7 @@ export const researchCommands = [
     /** params: { building, lab } */
     check(game, co, { building, lab }) {
       const b = ownLabBuilding(game, co, building);
-      return b && b.labs[lab] ? null : fail('err.notYours');
+      return b && isIndex(b.labs, lab) && b.labs[lab] ? null : fail('err.notYours');
     },
     run(game, co, { building, lab }) {
       game.state.buildings[building].labs[lab] = null;

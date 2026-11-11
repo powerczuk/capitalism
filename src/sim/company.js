@@ -35,8 +35,10 @@ export function createCompany(game, { name, color, human = false, ai = null }) {
     basis: {}, // companyId → what this company paid for the shares it holds there
     price: cash / B.stock.shares, // share price
     pd: [], // recent daily share prices
-    div: 0, // dividend payout ratio
+    div: 0, // dividend payout ratio the company has declared
+    paid: 0, // payout ratio it actually honoured at the last year end
     lastIssue: -99999,
+    raised: 0, // cash taken in by issuing shares, less cash spent on buying them back
     m: newLedger(), // ledger of the running month
     reports: [], // closed months
     negDays: 0, // consecutive days in financial distress
@@ -62,8 +64,11 @@ export function stakeOf(target, holderId) {
 /**
  * Remove a company from play. Its buildings are closed; its shares become
  * worthless; the shares it held in others return to the market.
+ *
+ * `settled` means the shareholders have already been paid (a takeover);
+ * otherwise whoever held shares writes off what they paid for them.
  */
-export function dissolveCompany(game, co, { keepBuildings = false } = {}) {
+export function dissolveCompany(game, co, { keepBuildings = false, settled = false } = {}) {
   const { state } = game;
   if (!keepBuildings) {
     for (const b of [...game.buildingsOf(co.id)]) delete state.buildings[b.id];
@@ -71,6 +76,7 @@ export function dissolveCompany(game, co, { keepBuildings = false } = {}) {
   }
   for (const id of state.companyOrder) {
     const other = state.companies[id];
+    if (!settled && other.alive && other.basis[co.id]) other.m.invest -= other.basis[co.id];
     delete other.shares.held[co.id];
     delete other.basis[co.id];
   }
@@ -88,11 +94,14 @@ export const companySystem = {
     const settings = state.settings;
     const usedColors = new Set();
     const nextColor = (wanted) => {
-      let c = Number.isInteger(wanted) ? wanted : 0;
+      let c = Number.isInteger(wanted) ? ((wanted % MAX_COMPANIES) + MAX_COMPANIES) % MAX_COMPANIES : 0;
       for (let i = 0; i < MAX_COMPANIES && usedColors.has(c); i++) c = (c + 1) % MAX_COMPANIES;
       usedColors.add(c);
       return c;
     };
+
+    const wantedCash = settings.startCash == null ? NaN : Number(settings.startCash);
+    settings.startCash = Number.isFinite(wantedCash) && wantedCash >= 0 ? wantedCash : content.balance.startCash;
 
     state.humanId = null;
     if (settings.player) {
@@ -101,11 +110,13 @@ export const companySystem = {
       state.humanId = co.id;
     }
 
-    const rivals = (settings.rivals || []).slice(0, MAX_COMPANIES - (settings.player ? 1 : 0));
+    const wantedRivals = Array.isArray(settings.rivals) ? settings.rivals : [];
+    const rivals = wantedRivals.slice(0, MAX_COMPANIES - (settings.player ? 1 : 0));
     const templates = rng.shuffle(content.companyTemplates.all());
     const levels = content.difficulties.ids();
     const personas = content.personalities.ids();
-    rivals.forEach((rival, i) => {
+    rivals.forEach((entry, i) => {
+      const rival = entry && typeof entry === 'object' ? entry : {};
       const template = templates[i % templates.length];
       const level = content.difficulties.has(rival.level) ? rival.level : rng.pick(levels);
       const persona = content.personalities.has(rival.persona)
@@ -114,7 +125,7 @@ export const companySystem = {
           ? template.persona
           : rng.pick(personas);
       createCompany(game, {
-        name: rival.name || template.name,
+        name: (typeof rival.name === 'string' && rival.name.trim().slice(0, 32)) || template.name,
         color: nextColor(rival.color ?? i + 1),
         ai: { level, persona },
       });

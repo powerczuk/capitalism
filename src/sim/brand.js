@@ -71,7 +71,8 @@ export const brandCommands = [
       return null;
     },
     run(game, co, { product, budget }) {
-      if (budget > 0) co.ads[product] = Math.round(budget);
+      const amount = Math.round(budget);
+      if (amount > 0) co.ads[product] = amount;
       else delete co.ads[product];
       return {};
     },

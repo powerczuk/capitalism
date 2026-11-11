@@ -42,6 +42,7 @@ export function diagnose(game, co) {
         const at = { building: b.id, slot: i, product: slot.product };
         if (!slot.src) out.push({ level: 'bad', code: 'shelfNoSource', ...at });
         else if (slot.sup === SUP.INVALID) out.push({ level: 'bad', code: 'shelfBadSource', ...at });
+        else if (slot.sup === SUP.PRICE) out.push({ level: 'bad', code: 'shelfPriceUp', ...at });
         else if (slot.sup === SUP.NO_FUNDS) out.push({ level: 'bad', code: 'shelfNoFunds', ...at });
         else if (slot.so > 0.5) out.push({ level: 'warn', code: 'shelfShort', ...at });
         if (slot.qty > EPS && slot.price < slot.uc) out.push({ level: 'warn', code: 'shelfBelowCost', ...at });
@@ -61,6 +62,7 @@ export function diagnose(game, co) {
           const where = { ...at, input: id };
           if (!inp.src) out.push({ level: 'bad', code: 'inputNoSource', ...where });
           else if (inp.sup === SUP.INVALID) out.push({ level: 'bad', code: 'inputBadSource', ...where });
+          else if (inp.sup === SUP.PRICE) out.push({ level: 'bad', code: 'inputPriceUp', ...where });
           else if (inp.sup === SUP.NO_FUNDS) out.push({ level: 'bad', code: 'inputNoFunds', ...where });
           else if (inp.sup === SUP.SHORT && line.idle === 'inputs') out.push({ level: 'warn', code: 'inputShort', ...where });
           else continue;

@@ -5,6 +5,8 @@
 //   world(5) → companies(8) → economy(10) → worldEvents(20) → construction(30)
 //   → production(40) → supply(50) → retail(60) → brand(66) → research(68)
 //   → finance(70) → stocks(80) → [ai(90)] → goals(95)
+//
+// `integrity` (1) has no daily work: it checks a save when it is loaded.
 
 import { BALANCE } from './balance.js';
 import { worldSystem } from './world.js';
@@ -20,12 +22,14 @@ import { brandCommands, brandSystem } from './brand.js';
 import { researchCommands, researchSystem } from './research.js';
 import { stockCommands, stockSystem } from './stocks.js';
 import { goalCommands, goalSystem } from './goals.js';
+import { integritySystem } from './integrity.js';
 
 export const simPlugin = {
   id: 'sim',
   install(content) {
     content.tune(BALANCE);
     content.systems.registerAll([
+      integritySystem,
       worldSystem,
       companySystem,
       economySystem,

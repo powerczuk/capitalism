@@ -36,6 +36,7 @@ function goalCard(app) {
   const status = goalStatus(game);
   if (!status || status.goal.id === 'sandbox') return '';
   const { goal } = status;
+  const raised = app.me?.raised ?? 0;
   const years = goal.years;
   const left = years ? Math.max(0, Math.ceil((years * DAYS_PER_YEAR - game.state.day) / 30)) : null;
   return html`<section class="card goal-card">
@@ -44,6 +45,7 @@ function goalCard(app) {
       ${left != null ? pill(tn('n.monthsLeft', left), left < 12 ? 'warn' : '') : ''}
     </div>
     <p class="card-note">${L(goal.desc)}</p>
+    ${raised > 0 && goal.measure === 'worth' ? html`<p class="muted small">${t('goal.raised', { amount: money(raised) })}</p>` : ''}
     <div class="goal-bar">${meter(status.progress, { tone: 'accent', label: pct(status.progress) })}<b>${pct(status.progress)}</b></div>
   </section>`;
 }

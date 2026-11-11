@@ -140,6 +140,14 @@ export const MODALS = {
 
 const coreActions = {
   noop() {},
+  /** Leave whatever screen failed to draw and return to safe ground. */
+  recover(app) {
+    app.ui.modal = null;
+    app.ui.panel = null;
+    app.ui.moreOpen = false;
+    app.ui.view = 'overview';
+    app.ui.arg = null;
+  },
   go(app, d) {
     app.go(d.view, d.arg ?? null);
   },

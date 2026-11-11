@@ -4,6 +4,7 @@
 // with a controlling stake — take a rival over.
 
 import { fail } from '../engine/game.js';
+import { own } from '../engine/util.js';
 import { equityOf, trailingProfit } from './accounting.js';
 import { dissolveCompany, publicFloat, stakeOf } from './company.js';
 
@@ -22,7 +23,15 @@ export function fundamentalValue(game, co) {
   const earnings = Math.max(-0.5 * book, eps * pe);
   const weight = 0.45 * Math.min(1, co.reports.length / 24);
   const value = Math.max(0.25 * book, (1 - weight) * book + weight * earnings);
-  return value * (1 + Math.min(0.15, co.div * 0.3));
+  return value * (1 + dividendPremium(co));
+}
+
+/**
+ * What the market adds for a company that shares its profit. A promise alone
+ * earns nothing: it counts only as far as the last dividend was really paid.
+ */
+export function dividendPremium(co) {
+  return Math.min(0.15, Math.min(co.div, co.paid ?? 0) * 0.3);
 }
 
 export const marketCap = (co) => co.price * co.shares.total;
@@ -84,8 +93,10 @@ function absorb(game, buyer, target) {
     const other = state.companies[id];
     if (!other.alive || other === buyer || other === target) continue;
     const qty = other.shares.held[target.id];
-    if (qty) other.shares.held[buyer.id] = (other.shares.held[buyer.id] || 0) + qty;
-    if (target.basis[id]) buyer.basis[id] = (buyer.basis[id] || 0) + target.basis[id];
+    if (!qty) continue;
+    other.shares.held[buyer.id] = (other.shares.held[buyer.id] || 0) + qty;
+    // They came with the target at today's price: that is what they cost the buyer.
+    buyer.basis[id] = (buyer.basis[id] || 0) + qty * other.price;
   }
   // Shares the target held in the buyer itself are cancelled.
   const selfHeld = buyer.shares.held[target.id];
@@ -104,7 +115,7 @@ export const stockCommands = [
     /** params: { target, qty } — buy shares of another company on the market */
     check(game, co, { target: targetId, qty }) {
       if (!stockEnabled(game)) return fail('err.stockDisabled');
-      const target = game.state.companies[targetId];
+      const target = own(game.state.companies, targetId);
       if (!target?.alive || target === co) return fail('err.badTarget');
       if (!validQty(qty)) return fail('err.badValue');
       if (qty > publicFloat(target)) return fail('err.noFloat');
@@ -114,7 +125,7 @@ export const stockCommands = [
     },
     run(game, co, { target: targetId, qty }) {
       const S = game.content.balance.stock;
-      const target = game.state.companies[targetId];
+      const target = own(game.state.companies, targetId);
       const before = stakeOf(target, co.id);
       const cost = tradeCost(game, target, qty);
       co.cash -= cost;
@@ -140,13 +151,13 @@ export const stockCommands = [
     id: 'sellShares',
     /** params: { target, qty } */
     check(game, co, { target: targetId, qty }) {
-      const target = game.state.companies[targetId];
+      const target = own(game.state.companies, targetId);
       if (!target?.alive || target === co) return fail('err.badTarget');
       if (!validQty(qty) || qty > (target.shares.held[co.id] || 0)) return fail('err.badValue');
       return null;
     },
     run(game, co, { target: targetId, qty }) {
-      const target = game.state.companies[targetId];
+      const target = own(game.state.companies, targetId);
       const held = target.shares.held[co.id];
       const proceeds = tradeProceeds(game, target, qty);
       const basis = ((co.basis[targetId] || 0) * qty) / held;
@@ -179,6 +190,7 @@ export const stockCommands = [
       const S = game.content.balance.stock;
       const proceeds = qty * co.price * (1 - S.issueDiscount);
       co.cash += proceeds;
+      co.raised = (co.raised ?? 0) + proceeds;
       co.shares.total += qty;
       co.lastIssue = game.state.day;
       movePrice(game, co, -qty);
@@ -201,6 +213,7 @@ export const stockCommands = [
     run(game, co, { qty }) {
       const cost = tradeCost(game, co, qty);
       co.cash -= cost;
+      co.raised = (co.raised ?? 0) - cost;
       co.shares.total -= qty;
       movePrice(game, co, qty);
       return { cost };
@@ -225,7 +238,7 @@ export const stockCommands = [
     check(game, co, { target: targetId }) {
       const S = game.content.balance.stock;
       if (!stockEnabled(game) || game.state.settings.takeovers === false) return fail('err.takeoversDisabled');
-      const target = game.state.companies[targetId];
+      const target = own(game.state.companies, targetId);
       if (!target?.alive || target === co) return fail('err.badTarget');
       if (stakeOf(target, co.id) <= S.control) return fail('err.noControl');
       const cost = takeoverCost(game, co, target);
@@ -249,10 +262,13 @@ export const stockCommands = [
         holder.cash += cashIn;
         holder.m.invest += cashIn - (holder.basis[targetId] || 0);
       }
-      // Paying more (or less) than book value shows up as a one-off item.
-      co.m.other += targetEquity - cost - (co.basis[targetId] || 0);
+      // Paying more (or less) than the target is worth shows up as a one-off
+      // item. Shares the target held in the buyer itself are not an asset the
+      // buyer gains: they are cancelled.
+      const ownShares = (co.shares.held[targetId] || 0) * co.price;
+      co.m.other += targetEquity - ownShares - cost - (co.basis[targetId] || 0);
       absorb(game, co, target);
-      dissolveCompany(game, target, { keepBuildings: true });
+      dissolveCompany(game, target, { keepBuildings: true, settled: true });
       target.acquiredBy = co.id;
       game.news('news.takeover', { company: co.name, target: target.name }, { tone: target.human ? 'bad' : 'info', co: target.id });
       game.bus.emit('takeover', { buyer: co, target });
@@ -283,13 +299,16 @@ export const stockSystem = {
     const { state } = game;
     for (const id of state.companyOrder) {
       const co = state.companies[id];
-      if (!co.alive || !(co.div > 0)) continue;
+      if (!co.alive) continue;
+      co.paid = 0;
+      if (!(co.div > 0)) continue;
       let profit = 0;
       for (const r of co.reports.slice(-12)) profit += r.profit;
       const total = profit * co.div;
       if (total <= 0 || co.cash < total) continue;
       const perShare = total / co.shares.total;
       co.cash -= total;
+      co.paid = co.div;
       for (const holderId in co.shares.held) {
         const holder = state.companies[holderId];
         if (!holder?.alive) continue;

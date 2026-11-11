@@ -2,9 +2,9 @@
 // The maths lives in market.js; this file applies it to the world.
 
 import { fail } from '../engine/game.js';
-import { ema, EPS } from '../engine/util.js';
+import { ema, EPS, isIndex } from '../engine/util.js';
 import { allocate, baseDemand, brandOf, localRival, pullOf, rating, refPrice, slotCapacity, storePull } from './market.js';
-import { canUseSource, defaultSource } from './supply.js';
+import { agreeSource, canUseSource, defaultSource, validPrice } from './supply.js';
 import { ownBuilding, slotCount, writeOffStock } from './construction.js';
 
 function runRetail(game) {
@@ -101,12 +101,10 @@ export const retailSystem = {
 
 function ownSlot(game, co, building, index) {
   const b = ownBuilding(game, co, building);
-  if (!b || b.kind !== 'retail') return null;
+  if (!b || b.kind !== 'retail' || !isIndex(b.slots, index)) return null;
   const slot = b.slots[index];
   return slot ? { b, slot } : null;
 }
-
-const validPrice = (p) => typeof p === 'number' && Number.isFinite(p) && p > 0 && p < 1e7;
 
 export const retailCommands = [
   {
@@ -155,10 +153,10 @@ export const retailCommands = [
           units: 0,
           last: null, // last closed month
         };
-        slot.src = defaultSource(game, co, b.city, productId);
+        agreeSource(game, co, slot, productId, defaultSource(game, co, b.city, productId));
         b.slots[index] = slot;
       }
-      if (src !== undefined) slot.src = src;
+      if (src !== undefined) agreeSource(game, co, slot, productId, src);
       if (price != null) slot.price = price;
       return {};
     },
@@ -201,7 +199,8 @@ export const retailCommands = [
       return null;
     },
     run(game, co, { building, slot, src }) {
-      ownSlot(game, co, building, slot).slot.src = src ?? null;
+      const found = ownSlot(game, co, building, slot).slot;
+      agreeSource(game, co, found, found.product, src);
       return {};
     },
   },

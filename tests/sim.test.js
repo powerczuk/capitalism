@@ -5,7 +5,7 @@ import { createContent, Game } from '../src/setup.js';
 import { assetsOf, creditLimit, equityOf } from '../src/sim/accounting.js';
 import { buildCost, upgradeCost } from '../src/sim/construction.js';
 import { diagnose } from '../src/sim/diagnostics.js';
-import { lineSrc, listSources, quote, SUP } from '../src/sim/supply.js';
+import { importPrice, lineSrc, listSources, quote, SUP } from '../src/sim/supply.js';
 import { freePlots } from '../src/sim/world.js';
 import { goalStatus } from '../src/sim/goals.js';
 
@@ -159,6 +159,97 @@ test('supply: other companies can buy only what is offered for sale', () => {
   game.run(30);
   assert.equal(game.state.buildings[store].slots[0].sup, SUP.INVALID);
   assert.ok(diagnose(game, other).some((d) => d.code === 'shelfBadSource'));
+});
+
+test('supply: a supplier cannot rewrite the bill after the deal', () => {
+  const game = Game.create(content, { seed: 'bill', cityCount: 3, player: { name: 'Seller' }, rivals: [{ level: 'novice' }], events: false });
+  const me = game.human;
+  const other = game.companies().find((c) => !c.human);
+  other.ai = null;
+  me.cash = 1e8;
+  other.cash = 1e8;
+  const city = game.cities()[0];
+  const plant = game.exec(me.id, 'build', { type: 'factory', city: city.id, district: 'industrial' }).building;
+  game.exec(me.id, 'setLine', { building: plant, line: 0, recipe: 'bread', sell: true, price: 0.6 });
+  const store = game.exec(other.id, 'build', { type: 'supermarket', city: city.id, district: 'residential' }).building;
+  const src = lineSrc(plant, 0);
+  assert.ok(game.exec(other.id, 'setSlot', { building: store, slot: 0, product: 'bread', src }).ok);
+  const slot = game.state.buildings[store].slots[0];
+  const line = game.state.buildings[plant].lines[0];
+  const market = importPrice(game, content.products.get('bread'));
+  assert.ok(Math.abs(slot.cap - 0.6 * (1 + content.balance.wholesale.tolerance)) < 1e-9, 'the customer agreed to the price it saw');
+  game.run(120);
+  assert.equal(slot.by, me.id);
+
+  // Absurd prices are not prices at all…
+  for (const price of [1e7, 1e308, Infinity, NaN, -1, 0, '7', true]) {
+    assert.equal(game.exec(me.id, 'setLineSale', { building: plant, line: 0, price }).error, 'err.badPrice', String(price));
+  }
+  // …and a merely outrageous one stops the deliveries instead of emptying the customer's account.
+  assert.ok(game.exec(me.id, 'setLineSale', { building: plant, line: 0, price: 60_000 }).ok);
+  const cash = other.cash;
+  const revenue = line.rev;
+  slot.qty = 0; // the shelf is empty and would order a full load
+  game.run(3);
+  assert.equal(slot.sup, SUP.PRICE);
+  assert.equal(line.rev, revenue, 'nothing was sold at the new price');
+  assert.ok(other.cash > cash - 1e6, `the customer lost ${Math.round(cash - other.cash)}`);
+  assert.ok(diagnose(game, other).some((d) => d.code === 'shelfPriceUp'));
+
+  // A rise within the agreed margin, or up to what imports cost anyway, goes through.
+  assert.ok(game.exec(me.id, 'setLineSale', { building: plant, line: 0, price: 0.66 }).ok);
+  slot.qty = 0;
+  game.run(2);
+  assert.notEqual(slot.sup, SUP.PRICE);
+  assert.ok(market > slot.cap, 'bread is imported for more than the agreed ceiling');
+  assert.ok(game.exec(me.id, 'setLineSale', { building: plant, line: 0, price: market * 0.99 }).ok);
+  slot.qty = 0;
+  game.run(2);
+  assert.notEqual(slot.sup, SUP.PRICE, 'the going market price needs no new handshake');
+  assert.ok(game.exec(me.id, 'setLineSale', { building: plant, line: 0, price: market * 1.3 }).ok);
+  slot.qty = 0;
+  game.run(2);
+  assert.equal(slot.sup, SUP.PRICE);
+
+  // Choosing the same supplier again accepts its new price.
+  assert.ok(game.exec(other.id, 'setSlotSource', { building: store, slot: 0, src }).ok);
+  slot.qty = 0;
+  game.run(2);
+  assert.notEqual(slot.sup, SUP.PRICE);
+  assert.ok(Math.abs(slot.cap - market * 1.3 * (1 + content.balance.wholesale.tolerance)) < 1e-9);
+
+  // Own lines and imports carry no agreed price.
+  assert.ok(game.exec(other.id, 'setSlotSource', { building: store, slot: 0, src: 'import' }).ok);
+  assert.equal(slot.cap, null);
+});
+
+test('ai: a supplier that raises its price loses the AI customer at once', () => {
+  const game = Game.create(content, { seed: 'gouge', cityCount: 3, player: { name: 'Seller' }, rivals: [{ level: 'manager', persona: 'merchant' }], events: false });
+  const me = game.human;
+  const other = game.companies().find((c) => !c.human);
+  me.cash = 1e8;
+  const city = game.cities()[0];
+  const plant = game.exec(me.id, 'build', { type: 'factory', city: city.id, district: 'industrial' }).building;
+  game.exec(me.id, 'setLine', { building: plant, line: 0, recipe: 'bread', sell: true, price: 0.5 });
+  const src = lineSrc(plant, 0);
+  // Give the AI a bread shelf on the player's line, then let it run its own business for a while.
+  const store = game.exec(other.id, 'build', { type: 'supermarket', city: city.id, district: 'residential' }).building;
+  game.run(80);
+  assert.ok(game.exec(other.id, 'setSlot', { building: store, slot: 0, product: 'bread', src }).ok);
+  game.run(30);
+  const shelves = () =>
+    game
+      .buildingsOf(other.id)
+      .flatMap((b) => b.slots || [])
+      .filter((s) => s && s.src === src);
+  assert.ok(shelves().length > 0, 'the AI buys the cheap bread');
+  assert.ok(game.exec(me.id, 'setLineSale', { building: plant, line: 0, price: 50_000 }).ok);
+  const cash = other.cash;
+  game.run(4);
+  assert.equal(shelves().length, 0, 'every shelf moved to another source');
+  assert.ok(other.cash > cash - 2e6, 'and the AI did not pay the new price');
+  game.run(60);
+  assert.equal(other.alive, true);
 });
 
 test('upgrade and demolish', () => {

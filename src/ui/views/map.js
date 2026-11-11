@@ -19,7 +19,12 @@ const jitter = (n) => {
   return x - Math.floor(x);
 };
 
-function roads(cities) {
+// The map is assembled as one SVG string, so nothing from the game state goes
+// into it unescaped: coordinates are forced to numbers, ids and names escaped.
+const at = (city) => ({ x: Number(city.x) || 0, y: Number(city.y) || 0 });
+
+function roads(places) {
+  const cities = places.map((city) => ({ id: city.id, ...at(city) }));
   const seen = new Set();
   let out = '';
   for (const a of cities) {
@@ -77,8 +82,9 @@ function countryMap(app) {
   const nameSize = big ? 44 : 27;
   const subSize = big ? 30 : 17;
   let marks = '';
-  for (const city of cities) {
-    const r = 12 + Math.sqrt(city.pop / 1e6) * 13;
+  for (const place of cities) {
+    const city = { ...place, ...at(place), name: String(place.name) };
+    const r = 12 + Math.sqrt(Math.max(0, Number(city.pop) || 0) / 1e6) * 13;
     const here = game.buildingsIn(city.id);
     const owners = [...new Set(here.map((b) => b.co))].map((id) => game.state.companies[id]).filter((c) => c?.alive);
     const mine = me ? here.filter((b) => b.co === me.id).length : 0;
@@ -94,7 +100,7 @@ function countryMap(app) {
     // Keep the label inside the map even for cities near the border.
     const half = Math.max(city.name.length * nameSize * 0.27, 60) + 10;
     const lx = Math.min(W - half, Math.max(half, city.x));
-    marks += `<g class="map-city" data-act="openCity" data-city="${city.id}" tabindex="0" role="button" aria-label="${esc(city.name)}">
+    marks += `<g class="map-city" data-act="openCity" data-city="${esc(city.id)}" tabindex="0" role="button" aria-label="${esc(city.name)}">
       <circle cx="${city.x}" cy="${city.y}" r="${(r + 22).toFixed(1)}" class="map-hit"/>
       <circle cx="${city.x}" cy="${city.y}" r="${r.toFixed(1)}" class="map-node"/>
       ${city.port ? `<path d="M${city.x - 5} ${city.y + 1}a5 5 0 0 0 10 0M${city.x} ${city.y - 6}v11M${city.x - 3} ${city.y - 3}h6" class="map-anchor"/>` : `<circle cx="${city.x}" cy="${city.y}" r="${(r * 0.36).toFixed(1)}" class="map-core"/>`}

@@ -42,6 +42,7 @@ export class App {
     this.game = null;
     this.ui = this.freshUi();
     this.dirty = true;
+    this.urgent = true;
     this.acc = 0;
     this.lastFrame = 0;
     this.lastRender = 0;
@@ -112,7 +113,9 @@ export class App {
       this.toast(t('toast.loaded'), 'good');
       return true;
     } catch (error) {
-      this.toast(t(error.message === 'save.version' ? 'err.saveVersion' : 'err.saveInvalid'), 'bad');
+      // The game in progress (if any) is untouched: a refused save changes nothing.
+      const key = { 'save.version': 'err.saveVersion', 'save.content': 'err.saveContent' }[error.message] ?? 'err.saveInvalid';
+      this.toast(t(key, error.params), 'bad');
       return false;
     }
   }
@@ -121,6 +124,8 @@ export class App {
     this.game = game;
     this.ui = this.freshUi();
     this.acc = 0;
+    this.failure = null;
+    this.healthy = false; // true once this game has been drawn without an error
     game.bus.on('news', (item) => this.onNews(item));
     game.bus.on('built', (b) => {
       if (b.co === game.state.humanId) this.toast(t('toast.built', { name: this.buildingName(b) }), 'good');
@@ -128,7 +133,7 @@ export class App {
     game.bus.on('upgraded', (b) => {
       if (b.co === game.state.humanId) this.toast(t('toast.upgraded', { name: this.buildingName(b) }), 'good');
     });
-    game.bus.on('month', () => this.save('auto'));
+    game.bus.on('month', () => this.autosave());
     game.bus.on('outcome', () => {
       this.ui.speed = 0;
       this.ui.modal = { type: 'outcome' };
@@ -139,8 +144,17 @@ export class App {
 
   quitToStart() {
     this.game = null;
+    this.failure = null; // a failed game is left behind with the game itself
     this.ui = this.freshUi();
     this.render();
+  }
+
+  /**
+   * Keep the game in the automatic slot — unless it has never been drawn
+   * properly or a rule has failed: then the last good save is worth more.
+   */
+  autosave() {
+    if (this.game && this.healthy && !this.failure && !this.game.state.outcome) storage.saveGame(this.game, 'auto');
   }
 
   save(slot = 'manual') {
@@ -258,8 +272,13 @@ export class App {
     return result;
   }
 
+  /**
+   * Ask for a re-render on the next frame. Used for everything the player
+   * does, so it is never held back by the pacing of clock-driven redraws.
+   */
   render() {
     this.dirty = true;
+    this.urgent = true;
   }
 
   // -------------------------------------------------------------------------
@@ -267,6 +286,22 @@ export class App {
   // -------------------------------------------------------------------------
 
   frame(now) {
+    try {
+      this.step(now);
+    } catch (error) {
+      // A rule or the DOM patcher failed. The world may be half-way through a
+      // day, so stop for good and say so — never freeze silently, and never
+      // save what might be a broken state over the last good one.
+      console.error(error);
+      this.failure = error;
+      this.ui.speed = 0;
+      this.showFailure();
+    }
+    requestAnimationFrame((next) => this.frame(next));
+  }
+
+  step(now) {
+    if (this.failure) return;
     const dt = Math.min(0.25, (now - (this.lastFrame || now)) / 1000);
     this.lastFrame = now;
     const game = this.game;
@@ -281,10 +316,11 @@ export class App {
       this.ui.toasts = this.ui.toasts.filter((x) => x.until >= now);
       this.dirty = true;
     }
+    // While the clock runs the screen is redrawn a few times a second; what
+    // the player does (a click, a dialog) is shown on the very next frame.
     const running = game && this.ui.speed > 0;
     const interval = running ? (this.ui.speed >= 3 ? 220 : 160) : 0;
-    if (this.dirty && now - this.lastRender >= interval) this.renderNow(now);
-    requestAnimationFrame((next) => this.frame(next));
+    if (this.dirty && (this.urgent || now - this.lastRender >= interval)) this.renderNow(now);
   }
 
   // -------------------------------------------------------------------------
@@ -331,7 +367,15 @@ export class App {
     let spaceTaken = false;
     window.addEventListener('keydown', (event) => {
       const tag = event.target.tagName;
-      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') {
+        // Keys typed into a field belong to the field — except Escape while
+        // renaming a building, which abandons the rename.
+        if (event.key === 'Escape' && this.ui.renaming) {
+          this.ui.renaming = null;
+          this.render();
+        }
+        return;
+      }
       if (event.key === 'Escape') {
         if (this.ui.modal && this.ui.modal.type !== 'outcome') this.closeModal();
         else if (this.ui.moreOpen) {
@@ -357,8 +401,13 @@ export class App {
         event.preventDefault(); // some browsers click the focused button on key-up
       }
     });
-    window.addEventListener('beforeunload', () => {
-      if (this.game && !this.game.state.outcome) storage.saveGame(this.game, 'auto');
+    // Leaving the page keeps the game. Phones rarely fire `beforeunload`, so
+    // going to the background counts as leaving too.
+    const keep = () => this.autosave();
+    window.addEventListener('beforeunload', keep);
+    window.addEventListener('pagehide', keep);
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden') keep();
     });
   }
 
@@ -368,16 +417,39 @@ export class App {
 
   renderNow(now = performance.now()) {
     this.dirty = false;
+    this.urgent = false;
     this.lastRender = now;
     let markup;
     try {
       markup = this.game ? this.renderGame() : renderStart(this);
+      if (this.game) this.healthy = true;
     } catch (error) {
+      // A view failed to draw: the world itself is fine, so offer a way back.
       console.error(error);
-      markup = html`<div class="crash"><h1>${t('crash.title')}</h1><p>${t('crash.text')}</p><pre>${String(error?.stack || error)}</pre></div>`;
+      markup = this.renderCrash(error, true);
     }
     morph(this.root, markup);
     refreshChartHover(this.root);
+  }
+
+  renderCrash(error, recoverable) {
+    return html`<div class="crash">
+      <h1>${t('crash.title')}</h1>
+      <p>${t('crash.text')}</p>
+      <p class="form-row">
+        ${recoverable ? html`<button type="button" class="btn btn-primary" data-act="recover">${t('crash.back')}</button>` : ''}
+        <button type="button" class="btn" data-act="quitNow">${t('outcome.menu')}</button>
+      </p>
+      <pre>${String(error?.stack || error)}</pre>
+    </div>`;
+  }
+
+  showFailure() {
+    try {
+      morph(this.root, this.renderCrash(this.failure, false));
+    } catch {
+      this.root.textContent = `${t('crash.title')} — ${t('crash.text')}`;
+    }
   }
 
   renderGame() {

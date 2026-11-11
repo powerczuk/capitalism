@@ -26,8 +26,14 @@ export function parseSrc(src) {
   return Number.isInteger(line) ? { kind: 'line', building: src.slice(0, i), line } : null;
 }
 
-/** Supply status codes stored on shelves and line inputs (`sup`). */
-export const SUP = { OK: 0, NONE: 1, INVALID: 2, NO_FUNDS: 3, SHORT: 4 };
+/** A price a player may set on a shelf or on a wholesale offer. */
+export const validPrice = (p) => typeof p === 'number' && Number.isFinite(p) && p > 0 && p < 1e7;
+
+/**
+ * Supply status codes stored on shelves and line inputs (`sup`).
+ * PRICE: the supplier asks more than the customer agreed to — nothing is bought.
+ */
+export const SUP = { OK: 0, NONE: 1, INVALID: 2, NO_FUNDS: 3, SHORT: 4, PRICE: 5 };
 
 // ---------------------------------------------------------------------------
 // Technology and import terms
@@ -217,6 +223,31 @@ export function defaultSource(game, buyer, cityId, productId) {
   return (own ?? sources[0])?.src ?? null;
 }
 
+/**
+ * Point a shelf or a line input (`ref`) at a source. Choosing another
+ * company's line is an agreement on its price: `ref.cap` remembers the most
+ * the customer will pay per unit, so the seller cannot rewrite the bill later.
+ */
+export function agreeSource(game, buyer, ref, productId, src) {
+  ref.src = src ?? null;
+  const r = ref.src ? resolveLine(game, ref.src, productId) : null;
+  ref.cap = r && r.building.co !== buyer.id ? r.line.price * (1 + game.content.balance.wholesale.tolerance) : null;
+}
+
+/**
+ * The most a customer pays a supplier per unit: what was agreed when the
+ * source was chosen, and in any case the going import price — nobody needs a
+ * new handshake for a price the open market asks anyway.
+ */
+export function priceLimit(game, ref, line, product) {
+  const B = game.content.balance.wholesale;
+  const market = product.importable ? importPrice(game, product) : 0;
+  // Sources chosen before prices were agreed on (older saves) settle on today's
+  // price, but not above the market's.
+  if (ref.cap == null) ref.cap = (market > 0 ? Math.min(line.price, market) : line.price) * (1 + B.tolerance);
+  return Math.max(ref.cap, market);
+}
+
 /** May `buyer` use this source for this product? (validation for commands) */
 export function canUseSource(game, buyer, productId, src) {
   const parsed = parseSrc(src);
@@ -224,6 +255,7 @@ export function canUseSource(game, buyer, productId, src) {
   const product = game.content.products.find(productId);
   if (!product) return false;
   if (parsed.kind === 'import') return !!product.importable;
+  if (src !== lineSrc(parsed.building, parsed.line)) return false; // one spelling per source ("b1:0", never "b1:" or "b1:00")
   const r = resolveLine(game, src, productId);
   return !!r && (r.building.co === buyer.id || r.line.sell);
 }
@@ -355,6 +387,7 @@ function runSupply(game) {
       let wanted = 0;
       for (const q of group) {
         if (!pass && !line.sell) q.ref.sup = SUP.INVALID;
+        else if (!pass && line.price > priceLimit(game, q.ref, line, product)) q.ref.sup = SUP.PRICE;
         else if (!pass && !hasFunds(q.co)) q.ref.sup = SUP.NO_FUNDS;
         else {
           q.active = true;

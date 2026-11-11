@@ -77,6 +77,16 @@ export function hashString(str) {
   return h >>> 0;
 }
 
+/**
+ * Entry of an id-keyed map. Unlike `map[id]` it never returns an inherited
+ * property ("constructor", "toString"…), so ids that arrive from outside —
+ * command parameters above all — can be looked up safely.
+ */
+export const own = (map, id) => (typeof id === 'string' && Object.hasOwn(map, id) ? map[id] : undefined);
+
+/** True for a real position in `list` (rejects "length", 1.5, -1, …). */
+export const isIndex = (list, i) => Number.isInteger(i) && i >= 0 && i < list.length;
+
 export function clone(value) {
   return typeof structuredClone === 'function'
     ? structuredClone(value)

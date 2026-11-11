@@ -43,6 +43,10 @@ export const BALANCE = {
     localKm: 20, // distance charged for deliveries inside one city
   },
 
+  wholesale: {
+    tolerance: 0.15, // how far a supplier may raise its price before a customer must agree again
+  },
+
   production: {
     outputDays: 8, // a line stops when this many days of output are unsold
     inputDays: 3, // days of inputs a line tries to keep

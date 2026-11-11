@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 
 import { createContent, Game } from '../src/setup.js';
 import { equityOf } from '../src/sim/accounting.js';
+import { stakeOf } from '../src/sim/company.js';
 import { diagnose } from '../src/sim/diagnostics.js';
 import { buildingCounts } from '../src/sim/stats.js';
 
@@ -103,4 +104,60 @@ test('ai: the pricing assistant manages shelves a human hands over', () => {
   const [auto, manual] = game.state.buildings[store].slots;
   assert.ok(auto.price > auto.uc, 'the assistant never sells below cost');
   assert.equal(manual.price, 0.3, 'manual shelves are left alone');
+});
+
+test('ai: a buyback defence never hands the company to the raider', () => {
+  const S = content.balance.stock;
+  const setup = (cash, level = 'shark') => {
+    const game = Game.create(content, { seed: 'siege', cityCount: 3, player: { name: 'Raider' }, rivals: [{ level, persona: 'merchant' }], events: false });
+    const raider = game.human;
+    const target = game.companies().find((c) => !c.human);
+    raider.cash = 5e8;
+    target.cash = cash;
+    return { game, raider, target };
+  };
+
+  // Rich target, raider at 30%: one buyback lifts the founder past control.
+  let { game, raider, target } = setup(3e8);
+  assert.ok(game.exec(raider.id, 'buyShares', { target: target.id, qty: 300_000 }).ok);
+  game.run(60);
+  assert.ok(target.shares.founder / target.shares.total > S.control, 'the founder is back in control');
+  assert.ok(stakeOf(target, raider.id) <= S.control, 'the raider is not');
+
+  // Raider at 45%: any buyback short of the whole float would push the raider over the line.
+  ({ game, raider, target } = setup(3e8));
+  for (let i = 0; i < 9; i++) assert.ok(game.exec(raider.id, 'buyShares', { target: target.id, qty: 50_000 }).ok);
+  game.run(60);
+  assert.ok(stakeOf(target, raider.id) <= S.control, `the defence left the raider at ${(100 * stakeOf(target, raider.id)).toFixed(1)}%`);
+
+  // A target whose money sits in buildings cannot pay for a full defence —
+  // and does not start half of one.
+  ({ game, raider, target } = setup(1e8, 'novice'));
+  let stores = 0;
+  for (const city of game.cities()) {
+    for (const district of ['center', 'residential', 'suburb']) {
+      if (stores < 5 && game.exec(target.id, 'build', { type: 'supermarket', city: city.id, district }).ok) stores += 1;
+    }
+  }
+  assert.equal(stores, 5);
+  target.cash = 1e6;
+  assert.ok(game.exec(raider.id, 'buyShares', { target: target.id, qty: 300_000 }).ok);
+  game.run(100);
+  assert.equal(target.shares.total, S.shares, 'no shares were cancelled');
+  assert.equal(stakeOf(target, raider.id), 0.3);
+});
+
+test('ai: a raider finishes the job even when the last tranche is tiny', () => {
+  const game = Game.create(content, { seed: 'tranche', cityCount: 3, player: null, rivals: [{ level: 'tycoon', persona: 'financier' }, { level: 'novice' }], events: false });
+  const [raider, prey] = game.companies();
+  prey.ai = null;
+  raider.cash = 5e8;
+  // 499,401 of a million shares: 600 short of control — fewer than the usual lot.
+  for (let left = 499_401; left > 0; left -= 50_000) {
+    assert.ok(game.exec(raider.id, 'buyShares', { target: prey.id, qty: Math.min(50_000, left) }).ok);
+  }
+  raider.ai.mem.prey = prey.id;
+  game.run(60);
+  assert.equal(prey.alive, false);
+  assert.equal(prey.acquiredBy, raider.id);
 });

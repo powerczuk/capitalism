@@ -4,8 +4,11 @@
 
 const PREFIX = 'wielka-hossa';
 const memory = new Map();
+const unsaved = new Set(); // keys whose newest value exists only in `memory`
 
 function read(key) {
+  // What the browser refused to keep is newer than what it still holds.
+  if (unsaved.has(key)) return memory.get(key) ?? null;
   try {
     const text = window.localStorage.getItem(key);
     if (text != null) return text;
@@ -19,14 +22,17 @@ function write(key, text) {
   memory.set(key, text);
   try {
     window.localStorage.setItem(key, text);
+    unsaved.delete(key);
     return true;
   } catch {
+    unsaved.add(key);
     return false;
   }
 }
 
 function remove(key) {
   memory.delete(key);
+  unsaved.delete(key);
   try {
     window.localStorage.removeItem(key);
   } catch {

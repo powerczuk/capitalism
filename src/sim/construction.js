@@ -1,7 +1,7 @@
 // Buildings: building, upgrading, demolishing and what they cost to run.
 
 import { fail } from '../engine/game.js';
-import { EPS } from '../engine/util.js';
+import { EPS, own } from '../engine/util.js';
 import { freePlots, landIndex, resourceQuality, wageIndex } from './world.js';
 
 export const slotCount = (type, level) => (type.slots ?? 0) + (level - 1) * (type.slotsPerLevel ?? 1);
@@ -56,7 +56,7 @@ function resize(list, n) {
 }
 
 function ownBuilding(game, co, id) {
-  const b = game.state.buildings[id];
+  const b = own(game.state.buildings, id);
   return b && b.co === co.id ? b : null;
 }
 
@@ -74,7 +74,7 @@ export const constructionCommands = [
       const { content, state } = game;
       const type = content.buildingTypes.find(typeId);
       if (!type) return fail('err.unknownBuilding');
-      const city = state.cities[cityId];
+      const city = own(state.cities, cityId);
       if (!city) return fail('err.unknownCity');
       if (!type.districts.includes(district)) return fail('err.wrongDistrict');
       if (freePlots(game, city, district) <= 0) return fail('err.noPlots');

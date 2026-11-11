@@ -11,6 +11,7 @@
 
 import { marketSnapshot } from '../sim/market.js';
 import { creditLimit } from '../sim/accounting.js';
+import { SUP } from '../sim/supply.js';
 import { externalNeeds, fixedCosts, usableSources } from './analysis.js';
 
 const MIN_RESERVE = 600_000;
@@ -144,12 +145,30 @@ export class AiContext {
   }
 }
 
+/** Does any shelf or line input of the company wait for a price it has not agreed to? */
+function priceRefused(game, co) {
+  for (const b of game.buildingsOf(co.id)) {
+    if (b.slots) {
+      for (const slot of b.slots) if (slot && slot.sup === SUP.PRICE) return true;
+    } else if (b.lines) {
+      for (const line of b.lines) {
+        if (!line) continue;
+        for (const id in line.inputs) if (line.inputs[id].sup === SUP.PRICE) return true;
+      }
+    }
+  }
+  return false;
+}
+
 /** Give one computer-run company its daily turn. */
 export function runCompany(game, co, modules) {
   const ctx = new AiContext(game, co);
   const { mem, profile, rng } = ctx;
   const day = game.state.day;
   mem.next ||= {};
+  // A supplier that asks more than was agreed stops delivering: look for
+  // another source today instead of at the next routine review.
+  if (profile.cadence.sourcing && mem.next.sourcing > day && priceRefused(game, co)) mem.next.sourcing = day;
   for (const module of modules) {
     if (!module.run) continue;
     const cadence = profile.cadence[module.id];

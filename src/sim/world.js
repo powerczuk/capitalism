@@ -108,7 +108,8 @@ function generateCities(game) {
   const { state, content, rng } = game;
   const W = content.balance.world;
   const archetypes = content.cityArchetypes.all();
-  const count = clamp(Math.round(state.settings.cityCount ?? 4), 2, archetypes.length);
+  const wanted = Math.round(Number(state.settings.cityCount ?? 4));
+  const count = clamp(Number.isFinite(wanted) ? wanted : 4, 2, archetypes.length);
   state.settings.cityCount = count;
 
   const usedNames = new Set();

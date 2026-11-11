@@ -12,7 +12,7 @@
 
 import { EventBus } from './events.js';
 import { Rng } from './rng.js';
-import { clone, hashString } from './util.js';
+import { clone, hashString, own } from './util.js';
 import { isMonthEnd, isYearEnd } from './calendar.js';
 
 export const SAVE_VERSION = 1;
@@ -119,8 +119,9 @@ export class Game {
   can(companyId, type, params = {}) {
     const command = this.content.commands.find(type);
     if (!command) return fail('err.unknownCommand', { type });
-    const company = this.state.companies[companyId];
+    const company = own(this.state.companies, companyId);
     if (!company || !company.alive) return fail('err.noCompany');
+    if (params === null || typeof params !== 'object') return fail('err.badValue');
     const problem = command.check?.(this, company, params);
     return problem && problem.ok === false ? problem : { ok: true };
   }

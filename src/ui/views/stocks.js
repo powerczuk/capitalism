@@ -137,7 +137,19 @@ export function tradeDialog(app, { target, mode, step = 1 }) {
   const spending = mode === 'buy' || mode === 'buyback';
   const affordable = !spending || me.cash >= amount;
   const after = mode === 'buy' ? (held + qty) / total : mode === 'sell' ? (held - qty) / total : null;
-  const founderAfter = mode === 'buyback' ? me.shares.founder / (total - qty) : mode === 'issue' ? me.shares.founder / (total + qty) : null;
+  const ownShares = mode === 'buyback' || mode === 'issue';
+  const totalAfter = mode === 'buyback' ? total - qty : total + qty;
+  const founderAfter = ownShares ? me.shares.founder / totalAfter : null;
+  // Cancelling or adding shares changes every stake — also the largest outside one.
+  let rival = null;
+  if (ownShares) {
+    for (const id in co.shares.held) {
+      const holder = game.state.companies[id];
+      if (holder?.alive && (!rival || co.shares.held[id] > rival.qty)) rival = { co: holder, qty: co.shares.held[id] };
+    }
+  }
+  const rivalAfter = rival ? rival.qty / totalAfter : 0;
+  const handsOver = rivalAfter > app.content.balance.stock.control;
   return html`<div class="modal-head">
       <h2>${t(`trade.${mode}.title`)}</h2>
       <button type="button" class="icon-btn" data-act="closeModal" aria-label="${t('close')}">${icon('close')}</button>
@@ -161,8 +173,15 @@ export function tradeDialog(app, { target, mode, step = 1 }) {
               </div>
               ${after != null ? html`<div><dt>${t('trade.stakeAfter')}</dt><dd>${pct(Math.max(0, after), 1)}</dd></div>` : ''}
               ${founderAfter != null ? html`<div><dt>${t('trade.founderAfter')}</dt><dd>${pct(founderAfter, 1)}</dd></div>` : ''}
+              ${rival
+                ? html`<div>
+                    <dt>${t('trade.rivalAfter', { company: rival.co.name })}</dt>
+                    <dd class="${handsOver ? 'bad' : ''}">${pct(rivalAfter, 1)}</dd>
+                  </div>`
+                : ''}
               <div><dt>${t('kpi.cash')}</dt><dd>${money(me.cash)}</dd></div>
             </dl>
+            ${handsOver ? html`<div class="notice notice-warn">${t('trade.handsOver', { company: rival.co.name })}</div>` : ''}
             <p class="muted small">${t(`trade.${mode}.note`)}</p>`}
     </div>
     <div class="modal-foot">

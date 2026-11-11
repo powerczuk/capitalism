@@ -7,10 +7,12 @@
 // hands out line capacity to the consumers that gain most. Whoever does not
 // fit buys from the best outside source (imports or another company).
 
-import { lineSrc, linePace } from '../../sim/supply.js';
+import { lineSrc, linePace, SUP } from '../../sim/supply.js';
 import { shelfOption, storeShelf } from '../analysis.js';
 
-const KEEP_BONUS = 1.15; // prefer leaving a consumer on the line it already uses
+const KEEP_BONUS = 1.25; // prefer leaving a consumer on the line it already uses
+const KEEP_ROOM = 0.75; // share of its need a line must still have free for a consumer to stay…
+const JOIN_ROOM = 0.9; // …and for a new one to be moved onto it
 
 export const sourcingModule = {
   id: 'sourcing',
@@ -66,6 +68,7 @@ export const sourcingModule = {
           }
           jobs.push({
             current: slot.src,
+            refused: slot.sup === SUP.PRICE,
             need: own ? own.units : 0,
             options,
             outsideSrc,
@@ -82,6 +85,9 @@ export const sourcingModule = {
           for (const id in recipe.inputs) {
             const inp = line.inputs[id];
             const need = pace * recipe.inputs[id];
+            // A supplier that rations its customers delivers less than was
+            // ordered: count what really arrives, not what was asked for.
+            const arriving = inp.sup === SUP.SHORT ? Math.min(need, (line.made ?? 0) * recipe.inputs[id]) : need;
             let outside = null;
             let present = null;
             const owned = [];
@@ -90,8 +96,9 @@ export const sourcingModule = {
                 if (capacity.has(s.src)) owned.push(s);
                 continue;
               }
-              if (s.src === inp.src) present = s;
-              if (ctx.lineFree(s) + (s.src === inp.src ? need : 0) < need * 0.5) continue;
+              const current = s.src === inp.src;
+              if (ctx.lineFree(s) + (current ? arriving : 0) < need * 0.5) continue;
+              if (current) present = s;
               if (!outside || value(s) < value(outside)) outside = s;
             }
             if (outside && present && present !== outside && value(outside) > value(present) * 0.97) outside = present;
@@ -102,6 +109,7 @@ export const sourcingModule = {
             }
             jobs.push({
               current: inp.src,
+              refused: inp.sup === SUP.PRICE,
               need,
               options,
               outsideSrc: outside?.src ?? null,
@@ -124,7 +132,8 @@ export const sourcingModule = {
     for (const bid of bids) {
       if (bid.job.assigned) continue;
       const left = capacity.get(bid.src) ?? 0;
-      if (left >= bid.job.need * 0.75) {
+      // Whoever already draws from a line may squeeze in; a newcomer needs real room.
+      if (left >= bid.job.need * (bid.job.current === bid.src ? KEEP_ROOM : JOIN_ROOM)) {
         bid.job.assigned = bid.src;
         capacity.set(bid.src, left - bid.job.need);
       }
@@ -134,7 +143,8 @@ export const sourcingModule = {
       const target = job.assigned ?? job.outsideSrc;
       if (!target) continue;
       if (!job.assigned && job.outsideSource) ctx.reserveLine(job.outsideSource, job.need);
-      if (target !== job.current) job.apply(target);
+      // Choosing the present supplier again accepts the price it asks now.
+      if (target !== job.current || job.refused) job.apply(target);
     }
   },
 };
