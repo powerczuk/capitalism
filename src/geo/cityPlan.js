@@ -68,10 +68,15 @@ export function plotCaps(content, city) {
 
 /**
  * Share (0–1) of the town's parcels that are built up at the city's present
- * population: a parcel is built when its `t` is not above this.
+ * population: a parcel is built when its `t` is not above this. A city at
+ * the bottom of its class still has gaps in its outermost ring of blocks; at
+ * the top of the class the town is complete.
  */
 export function builtShare(content, city) {
-  return Math.max(0.3, Math.min(1, 0.36 + (0.64 * city.pop) / (sizePop(content, city) * 1.25)));
+  const hi = sizePop(content, city);
+  const lo = content.cityArchetypes.find(city.arch)?.pop?.[0] ?? hi * 0.6;
+  const k = (city.pop - lo) / Math.max(1, hi - lo);
+  return Math.max(0.5, Math.min(1, 0.89 + 0.11 * k));
 }
 
 function weighted(rand, table) {
@@ -474,8 +479,9 @@ export function cityPlan(content, city, opts = {}) {
       for (const h of [0, 1]) {
         if (b.halves[h]) continue;
         const kind = weighted(rand, FILL.sector);
-        if (b.split === 'z') wide(b, h, kind, early(b));
-        else tall(b, h, kind, early(b));
+        const t = early(b) * 0.6; // an industrial zone is built up early
+        if (b.split === 'z') wide(b, h, kind, t);
+        else tall(b, h, kind, t);
       }
       continue;
     }
@@ -561,6 +567,7 @@ export function cityPlan(content, city, opts = {}) {
     n,
     half,
     size,
+    rings: Object.fromEntries(districts.map((d) => [d.id, ringOf(d)])),
     coast,
     river,
     port,

@@ -31,6 +31,9 @@ function hash(text) {
   return h >>> 0;
 }
 
+/** What lies on a plot that is not for sale yet, by where its district is. */
+const RESERVE = { core: 'park', inner: 'park', outer: 'meadow', sector: 'warehouse', country: 'meadow' };
+
 /** Draw one parcel of town or countryside; kinds nobody can draw become grass. */
 function drawParcel(b, kind, w, d) {
   if (kind === 'hill') infra.hill(b, w, d);
@@ -149,7 +152,8 @@ export class CityScene {
           glowing.at(lot.x, 0, lot.z, lot.ry, () => glowing.plane(0, 0.05, 0, lot.w - 0.3, lot.d - 0.3, 0xffffff));
           this.lotProxies.set(`${district}:${k}`, this._proxy(lot, 0.5, { kind: 'lot', district, lot: k }));
         } else {
-          b.at(lot.x, 0, lot.z, lot.ry, () => drawParcel(b, 'meadow', lot.w, lot.d));
+          // land the town has not released for building yet
+          b.at(lot.x, 0, lot.z, lot.ry, () => drawParcel(b, RESERVE[this.plan.rings?.[district]] ?? 'meadow', lot.w, lot.d));
         }
       });
     }
