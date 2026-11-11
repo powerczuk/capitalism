@@ -3,7 +3,7 @@
 // language setting.
 
 import { L, t } from './i18n.js';
-import { price } from './format.js';
+import { int, price } from './format.js';
 
 export function newsText(game, item) {
   const { content, state } = game;
@@ -11,7 +11,7 @@ export function newsText(game, item) {
   if (p.product) p.product = L(content.products.find(p.product)?.name) || p.product;
   if (p.city) p.city = state.cities[p.city]?.name ?? p.city;
   if (p.perShare != null) p.perShare = price(p.perShare);
-  if (p.qty != null) p.qty = new Intl.NumberFormat('pl-PL').format(p.qty);
+  if (p.qty != null) p.qty = int(p.qty);
   return t(item.k, p);
 }
 

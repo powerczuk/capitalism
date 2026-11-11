@@ -29,6 +29,7 @@ function defaultDraft(app) {
     ],
     events: true,
     takeovers: true,
+    spectate: false,
     seed: '',
     open: false,
   };
@@ -144,6 +145,10 @@ function newGameForm(app) {
         <input id="opt-takeovers" type="checkbox" data-change="draftCheck" data-field="takeovers"${flag('checked', d.takeovers)} />
         <span>${t('start.takeovers')}</span>
       </label>
+      <label class="check" title="${t('start.spectate.hint')}">
+        <input id="opt-spectate" type="checkbox" data-change="draftCheck" data-field="spectate"${flag('checked', d.spectate)} />
+        <span>${t('start.spectate')}</span>
+      </label>
     </div>
 
     <label class="field">
@@ -154,7 +159,7 @@ function newGameForm(app) {
 
     <div class="charter-foot">
       <button type="button" class="btn btn-ghost" data-act="draftClose">${t('cancel')}</button>
-      <button type="submit" class="btn btn-primary">${t('start.go')}</button>
+      <button type="submit" class="btn btn-primary">${t(d.spectate ? 'start.go.spectate' : 'start.go')}</button>
     </div>
   </form>`;
 }
@@ -274,6 +279,10 @@ export const startActions = {
   },
   draftStart(app) {
     const draft = draftOf(app);
+    if (draft.spectate && draft.rivals.length === 0) {
+      app.toast(t('start.spectate.empty'), 'bad');
+      return;
+    }
     const capital = CAPITAL.find((c) => c.id === draft.capital) ?? CAPITAL[1];
     app.startGame({
       seed: draft.seed.trim() || undefined,
@@ -282,7 +291,7 @@ export const startActions = {
       goal: draft.goal,
       events: draft.events,
       takeovers: draft.takeovers,
-      player: { name: draft.name.trim() || t('start.name.default'), color: draft.color },
+      player: draft.spectate ? null : { name: draft.name.trim() || t('start.name.default'), color: draft.color },
       rivals: draft.rivals.map((r) => ({ level: r.level, persona: r.persona })),
     });
   },

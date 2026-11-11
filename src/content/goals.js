@@ -39,9 +39,16 @@ export const GOALS = [
   worthGoal(
     'worth250',
     250_000_000,
-    15,
+    12,
     { pl: 'Ćwierć miliarda', en: 'Quarter of a billion' },
-    { pl: 'Osiągnij 250 mln $ wartości netto w ciągu 15 lat.', en: 'Reach a net worth of $250M within 15 years.' },
+    { pl: 'Osiągnij 250 mln $ wartości netto w ciągu 12 lat.', en: 'Reach a net worth of $250M within 12 years.' },
+  ),
+  worthGoal(
+    'worth1000',
+    1_000_000_000,
+    20,
+    { pl: 'Miliarder', en: 'Billionaire' },
+    { pl: 'Zbuduj spółkę wartą miliard dolarów w ciągu 20 lat.', en: 'Build a company worth a billion dollars within 20 years.' },
   ),
   {
     id: 'leader10',

@@ -102,7 +102,7 @@ export class App {
   startGame(options) {
     this.attach(Game.create(this.content, options));
     this.ui.speed = 0;
-    this.toast(t('toast.started'), 'good');
+    this.toast(t(options.player ? 'toast.started' : 'toast.spectating'), 'good');
     this.save('auto');
   }
 

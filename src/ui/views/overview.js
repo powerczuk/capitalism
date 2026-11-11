@@ -8,6 +8,7 @@ import { meter } from '../charts.js';
 import { chartCard, historySeries } from '../chartCard.js';
 import { buildingTitle, button, coName, emptyState, heading, pill, stat, toneOf } from '../components.js';
 import { newsText, newsTone } from '../news.js';
+import { equityOf } from '../../sim/accounting.js';
 import { diagnose } from '../../sim/diagnostics.js';
 import { goalStatus } from '../../sim/goals.js';
 import { buildingCounts, retailShare } from '../../sim/stats.js';
@@ -100,14 +101,63 @@ function alerts(app) {
   </section>`;
 }
 
-function spectator(app) {
+function newsCard(app) {
   const { game } = app;
+  const news = game.state.news.slice(-6).reverse();
+  return html`<section class="card">
+    <div class="card-head">
+      <h3>${t('nav.news')}</h3>
+      ${button(t('all'), 'go', { view: 'news' }, { small: true, variant: 'ghost' })}
+    </div>
+    ${news.length === 0
+      ? emptyState(t('news.none'))
+      : html`<ul class="news-list compact">
+          ${news.map(
+            (n) => html`<li class="news-item news-${newsTone(n)}">
+              <time>${dateStr(n.d)}</time><span>${newsText(game, n)}</span>
+            </li>`,
+          )}
+        </ul>`}
+  </section>`;
+}
+
+function spectator(app) {
+  const { game, content } = app;
   const companies = game.companies();
   const { labels, series } = historySeries(game, companies, 'equity');
+  const ranked = companies.map((co) => ({ co, equity: equityOf(game, co), counts: buildingCounts(game, co.id) })).sort((a, b) => b.equity - a.equity);
   return html`<div class="view">
     ${heading(t('nav.overview'))}
     <p class="lead">${t('spectator.lead')}</p>
-    ${chartCard(app, { id: 'worth', title: t('chart.worth'), series, labels, fmt: money })}
+    <div class="grid-2">
+      ${chartCard(app, { id: 'worth', title: t('chart.worth'), series, labels, fmt: money })} ${newsCard(app)}
+    </div>
+    <div class="table-wrap">
+      <table class="data">
+        <thead>
+          <tr>
+            <th>${t('company')}</th>
+            <th>${t('start.rival.level')}</th>
+            <th>${t('start.rival.persona')}</th>
+            <th class="num">${t('kpi.worth')}</th>
+            <th class="num">${t('stat.stores')}</th>
+            <th class="num">${t('rivals.plants')}</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${ranked.map(
+            ({ co, equity, counts }) => html`<tr data-key="rank-${co.id}">
+              <td>${coName(co)}</td>
+              <td>${L(content.difficulties.find(co.ai?.level)?.name)}</td>
+              <td>${L(content.personalities.find(co.ai?.persona)?.name)}</td>
+              <td class="num"><b>${money(equity)}</b></td>
+              <td class="num">${counts.retail}</td>
+              <td class="num">${counts.producer} + ${counts.research}</td>
+            </tr>`,
+          )}
+        </tbody>
+      </table>
+    </div>
   </div>`;
 }
 
@@ -125,7 +175,6 @@ export const overviewView = {
     const share = retailShare(game, me.id);
     const companies = game.companies();
     const { labels, series } = historySeries(game, companies, 'equity');
-    const news = game.state.news.slice(-6).reverse();
     return html`<div class="view">
       ${heading(t('nav.overview'), coName(me))}
       <div class="grid-2">
@@ -139,22 +188,7 @@ export const overviewView = {
           ${goalCard(app)} ${firstSteps(app)} ${alerts(app)}
         </div>
         <div class="stack">
-          ${chartCard(app, { id: 'worth', title: t('chart.worth'), series, labels, fmt: money })}
-          <section class="card">
-            <div class="card-head">
-              <h3>${t('nav.news')}</h3>
-              ${button(t('all'), 'go', { view: 'news' }, { small: true, variant: 'ghost' })}
-            </div>
-            ${news.length === 0
-              ? emptyState(t('news.none'))
-              : html`<ul class="news-list compact">
-                  ${news.map(
-                    (n) => html`<li class="news-item news-${newsTone(n)}">
-                      <time>${dateStr(n.d)}</time><span>${newsText(game, n)}</span>
-                    </li>`,
-                  )}
-                </ul>`}
-          </section>
+          ${chartCard(app, { id: 'worth', title: t('chart.worth'), series, labels, fmt: money })} ${newsCard(app)}
         </div>
       </div>
     </div>`;
