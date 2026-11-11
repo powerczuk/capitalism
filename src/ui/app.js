@@ -7,6 +7,7 @@
 //   app.cmd(type, params)    run a game command for the player (toasts errors)
 //   app.modal(type, props)   open a dialog;  app.closeModal()
 //   app.openBuilding(id)     open the building panel
+//   app.world3d              the 3D map (rotate, zoom, focus) while the map view shows it
 //   app.render()             ask for a re-render (cheap; coalesced)
 
 import { createContent, Game } from '../setup.js';
@@ -19,6 +20,7 @@ import { icon, speedIcon } from './icons.js';
 import { attachChartHover, refreshChartHover } from './charts.js';
 import { coName, moneyDelta, pctDelta, pill } from './components.js';
 import * as storage from './storage.js';
+import { syncWidgets } from './widgets.js';
 import { ACTIONS, MODALS, PANELS, VIEWS } from './views/index.js';
 import { newsText } from './news.js';
 import { renderStart } from './views/start.js';
@@ -41,6 +43,8 @@ export class App {
 
     this.game = null;
     this.ui = this.freshUi();
+    this.world3d = null; // the 3D map while it is on the page (see ui3d/world.js)
+    this.no3d = false; // the 3D view could not start in this browser: the flat map is used
     this.dirty = true;
     this.urgent = true;
     this.acc = 0;
@@ -70,6 +74,7 @@ export class App {
       tabs: {}, // remembered tab per view
       moreOpen: false, // mobile "more" sheet
       draft: null, // new-game form
+      world: { lots: null, details: false, info: null }, // the map view: free plots lit up, data drawer, building looked at
     };
   }
 
@@ -430,6 +435,7 @@ export class App {
     }
     morph(this.root, markup);
     refreshChartHover(this.root);
+    syncWidgets(this.root, this);
   }
 
   renderCrash(error, recoverable) {
@@ -460,7 +466,7 @@ export class App {
     const modal = ui.modal ? MODALS[ui.modal.type]?.(this, ui.modal) : null;
     return html`<div class="app ${panel ? 'has-panel' : ''} ${ui.speed > 0 ? 'running' : 'paused'}">
       ${this.renderTopbar()} ${this.renderTicker()} ${this.renderNav(views, view)}
-      <main class="main" data-view="${view.id}">${view.render(this)}</main>
+      <main class="main ${view.fill?.(this) ? 'main-fill' : ''}" data-view="${view.id}">${view.render(this)}</main>
       ${panel ? html`<aside class="panel" data-key="panel">${panel}</aside>` : ''}
       ${ui.moreOpen ? this.renderMore(views, view) : ''}
       ${modal

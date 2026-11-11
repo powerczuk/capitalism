@@ -37,6 +37,12 @@ const PATHS = {
   target: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.2" fill="currentColor"/>',
   gear: '<circle cx="12" cy="12" r="3.2"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M18.7 5.3l-2.1 2.1M7.4 16.6l-2.1 2.1"/>',
   anchor: '<circle cx="12" cy="5" r="2"/><path d="M12 7v14M5 13a7 7 0 0 0 14 0M8.5 11h7"/>',
+  turnLeft: '<path d="M5 12a7 7 0 1 1 3 5.7"/><path d="M5 6.5V12h5.5"/>',
+  turnRight: '<path d="M19 12a7 7 0 1 0-3 5.7"/><path d="M19 6.5V12h-5.5"/>',
+  plots: '<path d="M4 4h6M14 4h6M4 20h6M14 20h6M4 4v6M4 14v6M20 4v6M20 14v6"/><path d="M12 8.5v7M8.5 12h7"/>',
+  list: '<path d="M8 6.5h12M8 12h12M8 17.5h12"/><circle cx="4.2" cy="6.5" r="0.9" fill="currentColor"/><circle cx="4.2" cy="12" r="0.9" fill="currentColor"/><circle cx="4.2" cy="17.5" r="0.9" fill="currentColor"/>',
+  cube: '<path d="m12 3 8 4.5v9L12 21l-8-4.5v-9z"/><path d="M4 7.5 12 12l8-4.5M12 12v9"/>',
+  flat: '<path d="M9 4 3 6.5v13.5l6-2.5 6 2.5 6-2.5V4l-6 2.5z"/>',
 };
 
 const FILLED = new Set(['pause', 'play', 'more']);

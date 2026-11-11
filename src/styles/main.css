@@ -1556,6 +1556,332 @@ table.data {
   stroke-linejoin: round;
 }
 
+/* ------------------------------------------------------- the 3D world */
+
+/* The map view in 3D fills the main area: a canvas with tools laid over it. */
+.main.main-fill {
+  position: relative;
+  padding: 0;
+  overflow: hidden;
+}
+
+.world {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  overflow: hidden;
+  background: var(--map-sea);
+}
+
+.world.with-details {
+  grid-template-columns: minmax(0, 1fr) min(420px, 44%);
+}
+
+.world-stage {
+  position: relative;
+  grid-column: 1;
+  grid-row: 1;
+  min-width: 0;
+  min-height: 0;
+}
+
+.world-stage.loading::after {
+  content: attr(data-loading);
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: var(--ink-2);
+  font-size: 14px;
+}
+
+.world-host {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+.world-gl {
+  display: block;
+  width: 100%;
+  height: 100%;
+  outline: none;
+  touch-action: none;
+  cursor: grab;
+}
+
+.world-gl.dragging {
+  cursor: grabbing;
+}
+
+.world-gl:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+/* names over cities and over the player's buildings */
+.world-labels {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.world-label {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 1px 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--surface) 90%, transparent);
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.5;
+  white-space: nowrap;
+  will-change: transform;
+}
+
+.world-label-own::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--dot, var(--ink-3));
+}
+
+.world-label-city {
+  padding: 1px 11px 0;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.world-label-city.mine {
+  border-color: var(--accent);
+  box-shadow: inset 0 -3px 0 var(--accent);
+}
+
+.world-tip {
+  position: absolute;
+  z-index: 2;
+  top: 0;
+  left: 0;
+  max-width: 280px;
+  padding: 3px 9px;
+  border-radius: var(--radius-sm);
+  background: var(--ink);
+  color: var(--surface);
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+/* tools and notes over the canvas */
+.world-hud {
+  position: relative;
+  grid-column: 1;
+  grid-row: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  min-width: 0;
+  padding: 12px;
+  pointer-events: none;
+}
+
+.world-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+}
+
+.world-title,
+.world-tools,
+.world-card,
+.world-hint {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--surface) 94%, transparent);
+  box-shadow: 0 2px 10px rgba(20, 32, 28, 0.14);
+  pointer-events: auto;
+}
+
+.world-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding: 4px 14px 4px 4px;
+}
+
+.world-title:not(:has(.tool)) {
+  padding-left: 14px;
+}
+
+.world-name {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding-block: 2px;
+}
+
+.world-name h2 {
+  font-size: 22px;
+  font-weight: 800;
+  line-height: 1.1;
+}
+
+.world-tools {
+  display: flex;
+  gap: 2px;
+  padding: 4px;
+}
+
+.tool {
+  display: inline-grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--ink-2);
+  cursor: pointer;
+}
+
+.tool:hover {
+  background: var(--surface-2);
+  color: var(--ink);
+}
+
+.tool.on {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.world-hint {
+  margin-top: auto;
+  max-width: min(100%, 62ch);
+  padding: 5px 12px;
+  color: var(--ink-2);
+  font-size: 13px;
+}
+
+.world-card {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 220px;
+  max-width: min(100%, 320px);
+  padding: 8px 8px 10px 12px;
+}
+
+.world-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+/* the drawer with the numbers of the city (or the list of cities) */
+.world-details {
+  grid-column: 2;
+  grid-row: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  border-left: 1px solid var(--line-strong);
+  background: var(--paper);
+}
+
+.world-details-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 8px 8px 16px;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface);
+}
+
+.world-details-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-height: 0;
+  padding: 14px 16px 40px;
+  overflow-y: auto;
+}
+
+.world-details-body > * {
+  flex: none;
+}
+
+.world-details-body .district-grid {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+/* the flat plan of a city (where the 3D view is off) */
+.plan-box {
+  max-width: 720px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.plan {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.plan-lot,
+.plan-building {
+  cursor: pointer;
+}
+
+.plan-lot:hover,
+.plan-lot:focus-visible {
+  fill: #ffd76a;
+  fill-opacity: 1;
+  stroke-dasharray: none;
+  stroke-width: 0.5px;
+  outline: none;
+}
+
+.plan-building:hover,
+.plan-building:focus-visible {
+  stroke-width: 0.9px;
+  outline: none;
+}
+
+:root[data-theme='dark'] .plan {
+  filter: brightness(0.82) saturate(0.9);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) .plan {
+    filter: brightness(0.82) saturate(0.9);
+  }
+}
+
 .district-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
@@ -2632,6 +2958,46 @@ dd .meter {
 
   .stat-value {
     font-size: 18px;
+  }
+
+  /* the 3D world on a phone: tools in one scrolling row, the drawer as a sheet below */
+  .world.with-details {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) minmax(0, 1.25fr);
+  }
+
+  .world-details {
+    grid-column: 1;
+    grid-row: 2;
+    border-left: 0;
+    border-top: 1px solid var(--line-strong);
+  }
+
+  .world-hud {
+    padding: 8px var(--gutter-r) 8px var(--gutter);
+  }
+
+  .world-name h2 {
+    font-size: 19px;
+  }
+
+  .world-tools {
+    max-width: 100%;
+    overflow-x: auto;
+  }
+
+  .tool {
+    flex: none;
+    width: 40px;
+    height: 40px;
+  }
+
+  .world-hint {
+    font-size: 12px;
+  }
+
+  .world.with-details .world-hint {
+    display: none;
   }
 }
 

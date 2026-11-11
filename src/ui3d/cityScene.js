@@ -56,6 +56,7 @@ export class CityScene {
     const edge = this.plan.size - 10;
     this.bounds = { minX: -edge, maxX: edge, minZ: -edge, maxZ: edge, minZoom: 12, maxZoom: Math.min(260, this.plan.size * 2.4) };
     this.view = { x: 0, z: 0, zoom: Math.min(78, this.plan.half * 1.5), rot: 0 };
+    this.labelZoom = 130; // from further away the names over buildings would only be clutter
 
     this._base();
     this.town = null;
@@ -264,6 +265,19 @@ export class CityScene {
   anchor(id) {
     const cur = this.buildings.get(id);
     return cur ? { x: cur.lot.x, y: cur.height + 0.4, z: cur.lot.z } : null;
+  }
+
+  /** Names over the player's own buildings. */
+  labels(app) {
+    const me = app.me;
+    if (!me) return [];
+    const out = [];
+    for (const b of app.game.buildingsIn(this.city.id)) {
+      if (b.co !== me.id) continue;
+      const at = this.anchor(b.id);
+      if (at) out.push({ id: b.id, ...at, text: app.buildingName(b), cls: 'world-label-own', color: `var(--series-${(me.color % 8) + 1})` });
+    }
+    return out;
   }
 
   /** Centre of a plot or building on the ground — for flying the camera there. */

@@ -41,7 +41,7 @@ function rect(r) {
 
 /**
  * @param {object} plan from cityPlan()
- * @param {{plots?: object[], free?: object, built?: number, title?: string, interactive?: boolean}} [opts]
+ * @param {{plots?: object[], free?: object, built?: number, title?: string, interactive?: boolean, lotLabel?: (district: string, lot: number) => string}} [opts]
  */
 export function planSvg(plan, opts = {}) {
   const S = plan.size;
@@ -77,12 +77,12 @@ export function planSvg(plan, opts = {}) {
       const here = standing.get(`${district}:${k}`);
       if (here) {
         out += `<rect ${rect(lot)} rx="0.6" fill="${here.color}" stroke="var(--plan-ink, #1f2a26)" stroke-width="${here.own ? 0.5 : 0.25}"${
-          opts.interactive && here.id ? ` data-act="openLotBuilding" data-id="${esc(here.id)}" tabindex="0" class="plan-building"` : ''
+          opts.interactive && here.id ? ` data-act="openLotBuilding" data-id="${esc(here.id)}" tabindex="0" role="button" class="plan-building"` : ''
         }><title>${esc(here.label ?? '')}</title></rect>`;
       } else if (k < open) {
         out += `<rect ${rect(lot)} rx="0.6" fill="var(--plan-lot, #f3efdf)" fill-opacity="0.75" stroke="var(--plan-ink, #1f2a26)" stroke-width="0.22" stroke-dasharray="0.9 0.6"${
-          opts.interactive ? ` data-act="openLot" data-district="${esc(district)}" data-lot="${k}" tabindex="0" class="plan-lot"` : ''
-        }/>`;
+          opts.interactive ? ` data-act="openLot" data-district="${esc(district)}" data-lot="${k}" tabindex="0" role="button" class="plan-lot"` : ''
+        }>${opts.lotLabel ? `<title>${esc(opts.lotLabel(district, k))}</title>` : ''}</rect>`;
       } else {
         out += `<rect ${rect(lot)} fill="${PARCEL.meadow}" opacity="0.9"/>`;
       }

@@ -18,7 +18,7 @@
 
         npm start   →   http://localhost:5173/dev/city.html
 
-      ?seed=abc       the game's seed            ?city=0      which city (0–5)
+      ?seed=abc       the game's seed            ?city=0      which city (0–5), or "country" for the map of the country
       ?days=500       let the rivals build first  ?night=1     night lighting
       ?rot=1          camera turned (0–3)         ?zoom=60     world units in the height of the window
       ?x=10&z=-20     what the camera looks at    ?lots=1      light up the free plots
@@ -30,6 +30,7 @@
       import { createContent, Game } from '../src/setup.js';
       import { Stage } from '../src/ui3d/stage.js';
       import { CityScene } from '../src/ui3d/cityScene.js';
+      import { CountryScene } from '../src/ui3d/countryScene.js';
 
       const q = new URLSearchParams(location.search);
       const num = (name, fallback) => (q.has(name) ? Number(q.get(name)) : fallback);
@@ -41,14 +42,15 @@
         rivals: ['tycoon', 'shark', 'manager', 'novice', 'shark', 'tycoon'].map((level) => ({ level })),
       });
       game.run(num('days', 500));
-      const city = game.cities()[num('city', 0)];
+      const country = q.get('city') === 'country';
+      const city = country ? { name: 'country', arch: '', pop: 0 } : game.cities()[num('city', 0)];
 
       const stage = new Stage(document.getElementById('stage'));
       const t0 = performance.now();
-      const scene = new CityScene({ content, game, city, materials: stage.materials });
+      const scene = country ? new CountryScene({ content, game, materials: stage.materials }) : new CityScene({ content, game, city, materials: stage.materials });
       const built = Math.round(performance.now() - t0);
       if (q.get('night')) stage.setMode('night');
-      if (q.get('lots')) scene.setShowLots(true);
+      if (q.get('lots')) scene.setShowLots?.(true);
       stage.show(scene.group, {
         pickables: scene.pickables,
         bounds: scene.bounds,
@@ -64,7 +66,7 @@
       scene.group.traverse((node) => {
         if (node.geometry?.index) triangles += (node.geometry.index.count / 3) * (node.count ?? 1);
       });
-      const info = { city: city.name, arch: city.arch, pop: city.pop, buildings: scene.buildings.size, built, triangles: Math.round(triangles), calls: stage.renderer.info.render.calls };
+      const info = { city: city.name, arch: city.arch, pop: city.pop, buildings: scene.buildings?.size ?? 0, built, triangles: Math.round(triangles), calls: stage.renderer.info.render.calls };
       document.getElementById('help').textContent = `${info.city} · ${info.arch} · ${info.buildings} buildings · ${info.triangles} triangles · ${info.calls} draw calls · built in ${built} ms`;
       window.__stage = stage;
       window.__scene = scene;

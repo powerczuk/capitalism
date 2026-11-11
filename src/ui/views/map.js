@@ -9,6 +9,10 @@ import { buildingTitle, button, coName, dot, emoji, emptyState, heading, pill, p
 import { baseDemand } from '../../sim/market.js';
 import { buildCost, cityHasResourceFor } from '../../sim/construction.js';
 import { freePlots, landIndex, plotsOf, usedPlots, wageIndex, resourceQuality } from '../../sim/world.js';
+import { builtShare, cityPlan } from '../../geo/cityPlan.js';
+import { planSvg } from '../../geo/planSvg.js';
+import { registerWidget } from '../widgets.js';
+import { savePrefs } from '../storage.js';
 
 const W = 1000;
 const H = 640;
@@ -256,15 +260,47 @@ function cityMarket(app, city) {
   </section>`;
 }
 
-function cityPage(app, city) {
-  const { game, content } = app;
-  const arch = content.cityArchetypes.find(city.arch);
-  return html`<div class="view">
-    <div class="crumbs">
-      <button type="button" class="btn btn-ghost btn-sm" data-act="go" data-view="map">${icon('back', 16)}<span>${t('nav.map')}</span></button>
+/** The plan of a city, cached for as long as the game lasts. */
+const plans = new WeakMap();
+function planOf(app, city) {
+  let byCity = plans.get(app.game);
+  if (!byCity) plans.set(app.game, (byCity = new Map()));
+  if (!byCity.has(city.id)) byCity.set(city.id, cityPlan(app.content, city, { seed: app.game.state.settings.seed, cities: app.game.cities() }));
+  return byCity.get(city.id);
+}
+
+/** A flat plan of the city with its plots: the way to pick a plot without the 3D view. */
+function cityPlanBox(app, city) {
+  const { game, me, content } = app;
+  const free = {};
+  for (const d of content.districts.all()) free[d.id] = plotsOf(content, city, d.id);
+  const plots = game.buildingsIn(city.id).map((b) => {
+    const owner = game.state.companies[b.co];
+    const own = !!me && b.co === me.id;
+    return { district: b.district, lot: b.lot, color: seriesColor(owner?.color ?? 7), own, id: own ? b.id : null, label: own ? buildingTitle(game, b) : `${L(content.buildingTypes.find(b.type)?.name)} · ${owner?.name ?? ''}` };
+  });
+  return html`<section class="card">
+    <div class="card-head"><h3>${t('city.plan')}</h3></div>
+    <div class="plan-box">
+      ${raw(
+        planSvg(planOf(app, city), {
+          plots,
+          free,
+          built: builtShare(content, city),
+          title: `${t('city.plan')}: ${city.name}`,
+          interactive: !!me,
+          lotLabel: (district, lot) => t('city.plan.lot', { n: lot + 1, district: L(content.districts.find(district)?.name) ?? district }),
+        }),
+      )}
     </div>
-    ${heading(city.name, html`${pill(L(arch?.name))} ${city.port ? pill(`⚓ ${t('city.port')}`, 'info') : ''}`)}
-    <div class="stat-row">
+    <p class="card-note">${t(me ? 'city.plan.note' : 'city.plan.watch')}</p>
+  </section>`;
+}
+
+/** Numbers, resources, districts and the market of a city. */
+function cityFacts(app, city) {
+  const { game, content } = app;
+  return html`<div class="stat-row">
       ${stat({ label: t('city.pop'), value: int(city.pop), sub: t('city.growth', { pct: pct(city.growth, 1) }) })}
       ${stat({ label: t('city.wealth'), value: pct(city.wealth), sub: t('city.wealth.hint') })}
       ${stat({ label: t('city.wages'), value: pct(wageIndex(game, city)), sub: t('city.wages.hint') })}
@@ -283,8 +319,123 @@ function cityPage(app, city) {
       <p class="card-note">${t('city.resources.note')}</p>
     </section>
     <div class="district-grid">${content.districts.all().map((d) => districtCard(app, city, d))}</div>
-    ${cityMarket(app, city)}
+    ${cityMarket(app, city)}`;
+}
+
+function cityPage(app, city) {
+  const arch = app.content.cityArchetypes.find(city.arch);
+  return html`<div class="view">
+    <div class="crumbs">
+      <button type="button" class="btn btn-ghost btn-sm" data-act="go" data-view="map">${icon('back', 16)}<span>${t('nav.map')}</span></button>
+      ${solidButton(app)}
+    </div>
+    ${heading(city.name, html`${pill(L(arch?.name))} ${city.port ? pill(`⚓ ${t('city.port')}`, 'info') : ''}`)}
+    ${cityPlanBox(app, city)} ${cityFacts(app, city)}
   </div>`;
+}
+
+// ---------------------------------------------------------------------------
+// The 3D world: a canvas that fills the view, with a bar of tools over it
+// ---------------------------------------------------------------------------
+
+/** Is the map shown in 3D? (The player may prefer the flat one; WebGL may be missing.) */
+const solid = (app) => app.prefs.map3d !== false && !app.no3d;
+
+/** The button that brings the 3D view back (nothing where it cannot work). */
+function solidButton(app) {
+  if (app.no3d) return '';
+  return html`<button type="button" class="btn btn-sm" data-act="worldSolid">${icon('cube', 16)}<span>${t('world.solid')}</span></button>`;
+}
+
+const tool = (name, act, label, data = '', on = false) =>
+  html`<button type="button" class="tool ${on ? 'on' : ''}" data-act="${act}"${raw(data)} title="${label}" aria-label="${label}"${raw(on ? ' aria-pressed="true"' : '')}>${icon(name, 20)}</button>`;
+
+/** What stands on a plot the player looked at but does not own. */
+function infoCard(app, id) {
+  const { game, content } = app;
+  const b = game.state.buildings[id];
+  if (!b) return '';
+  const type = content.buildingTypes.find(b.type);
+  const owner = game.state.companies[b.co];
+  return html`<div class="world-card">
+    <div class="world-card-head">
+      <b>${emoji(type?.icon ?? '🏢')} ${L(type?.name) ?? b.type}</b>
+      <button type="button" class="icon-btn" data-act="worldInfoClose" aria-label="${t('close')}">${icon('close', 16)}</button>
+    </div>
+    <div>${coName(owner)}</div>
+    <div class="muted small">
+      ${L(content.districts.find(b.district)?.name)} · ${t('level')} ${b.level}${game.isReady(b) ? '' : ` · ${t('building.construction')}`}
+    </div>
+  </div>`;
+}
+
+function worldView(app, city) {
+  const { game, me, content } = app;
+  const w = app.ui.world;
+  if (w.lots == null) w.lots = !!me && game.buildingsOf(me.id).length < 3; // a new company is shown where it can build
+  const arch = city ? content.cityArchetypes.find(city.arch) : null;
+  const mine = city && me ? game.buildingsIn(city.id).filter((b) => b.co === me.id).length : 0;
+  const hint = !city ? t('world.hint.country') : me && w.lots ? t('world.hint.build') : t('world.hint.city');
+  return html`<div class="world ${w.details ? 'with-details' : ''}">
+    <div id="world3d" class="world-stage" data-widget="world3d" data-morph="keep"></div>
+    <div class="world-hud">
+      <div class="world-bar">
+        <div class="world-title">
+          ${city ? html`<button type="button" class="tool" data-act="go" data-view="map" title="${t('nav.map')}" aria-label="${t('nav.map')}">${icon('back', 20)}</button>` : ''}
+          <div class="world-name">
+            <h2>${city ? city.name : t('map.title')}</h2>
+            <span class="muted small">
+              ${city
+                ? html`${L(arch?.name)}${city.port ? ` · ⚓ ${t('city.port')}` : ''} · ${num(city.pop)}${me ? html` · ${tn('n.buildings', mine)}` : ''}`
+                : tn('n.cities', game.cities().length)}
+            </span>
+          </div>
+        </div>
+        <div class="world-tools" role="toolbar" aria-label="${t('world.tools')}">
+          ${city && me ? tool('plots', 'worldLots', t('world.lots'), '', !!w.lots) : ''}
+          ${tool('turnLeft', 'worldTurn', t('world.turnLeft'), ' data-dir="-1"')} ${tool('turnRight', 'worldTurn', t('world.turnRight'), ' data-dir="1"')}
+          ${tool('plus', 'worldZoom', t('world.zoomIn'), ' data-factor="0.7"')} ${tool('minus', 'worldZoom', t('world.zoomOut'), ' data-factor="1.43"')}
+          ${tool('list', 'worldDetails', t(city ? 'world.details' : 'world.details.country'), '', !!w.details)}
+          ${tool('flat', 'worldFlat', t('world.flat'))}
+        </div>
+      </div>
+      <p class="world-hint">${hint}</p>
+      ${w.info ? infoCard(app, w.info) : ''}
+    </div>
+    ${w.details
+      ? html`<aside class="world-details" data-key="world-details">
+          <div class="world-details-head">
+            <h3>${city ? city.name : t('map.title')}</h3>
+            <button type="button" class="icon-btn" data-act="worldDetails" aria-label="${t('close')}">${icon('close')}</button>
+          </div>
+          <div class="world-details-body">
+            ${city ? cityFacts(app, city) : html`<ul class="legend">${game.companies().map((co) => html`<li>${coName(co)}</li>`)}</ul>${cityTable(app)}`}
+          </div>
+        </aside>`
+      : ''}
+  </div>`;
+}
+
+/** One line about what the pointer is over in the 3D view (see ui3d/world.js). */
+export function describePick(app, target) {
+  const { game, me, content } = app;
+  if (target.kind === 'city') {
+    const city = game.state.cities[target.id];
+    return city ? `${city.name} · ${num(city.pop)}` : null;
+  }
+  if (target.kind === 'lot') {
+    const district = content.districts.find(target.district);
+    return me ? t('world.pick.lot', { district: L(district?.name) ?? target.district }) : null;
+  }
+  if (target.kind === 'building') {
+    const b = game.state.buildings[target.id];
+    if (!b) return null;
+    const type = content.buildingTypes.find(b.type);
+    const owner = game.state.companies[b.co];
+    const name = me && b.co === me.id ? buildingTitle(game, b) : `${L(type?.name) ?? b.type} · ${owner?.name ?? ''}`;
+    return game.isReady(b) ? name : `${name} · ${t('building.construction')}`;
+  }
+  return null;
 }
 
 export const mapView = {
@@ -293,12 +444,15 @@ export const mapView = {
   icon: 'map',
   label: 'nav.map',
   primary: true,
+  /** In 3D the view fills the whole main area instead of scrolling in it. */
+  fill: solid,
   render(app) {
     const { game } = app;
     const city = app.ui.arg ? game.state.cities[app.ui.arg] : null;
+    if (solid(app)) return worldView(app, city);
     if (city) return cityPage(app, city);
     return html`<div class="view">
-      ${heading(t('map.title'))}
+      ${heading(t('map.title'), solidButton(app))}
       <p class="lead">${t('map.lead')}</p>
       <div class="map-box">${countryMap(app)}</div>
       <ul class="legend">
@@ -313,7 +467,7 @@ export const mapView = {
 // Build dialog
 // ---------------------------------------------------------------------------
 
-export function buildDialog(app, { city: cityId, district: districtId }) {
+export function buildDialog(app, { city: cityId, district: districtId, lot = null }) {
   const { game, me, content } = app;
   const city = game.state.cities[cityId];
   const district = content.districts.get(districtId);
@@ -323,12 +477,14 @@ export function buildDialog(app, { city: cityId, district: districtId }) {
       <button type="button" class="icon-btn" data-act="closeModal" aria-label="${t('close')}">${icon('close')}</button>
     </div>
     <div class="modal-body">
-      <p class="muted">${t('build.cash', { cash: money(me.cash) })} · ${t('city.plots.free', { n: freePlots(game, city, districtId) })}</p>
+      <p class="muted">
+        ${t('build.cash', { cash: money(me.cash) })} · ${lot == null ? t('city.plots.free', { n: freePlots(game, city, districtId) }) : t('build.lot', { n: lot + 1 })}
+      </p>
       <ul class="options">
         ${types.map((type) => {
           const cost = buildCost(game, type, city, districtId);
           const possible = type.kind !== 'producer' || cityHasResourceFor(game, type, city);
-          const check = game.can(me.id, 'build', { type: type.id, city: cityId, district: districtId });
+          const check = game.can(me.id, 'build', { type: type.id, city: cityId, district: districtId, lot });
           const recipes = type.kind === 'producer' ? content.recipes.filter((r) => r.building === type.id && (!r.raw || city.res[r.output] != null)) : [];
           const rawOnly = type.kind === 'producer' && content.recipes.filter((r) => r.building === type.id).every((r) => r.raw);
           return html`<li class="option ${check.ok ? '' : 'option-off'}">
@@ -350,7 +506,15 @@ export function buildDialog(app, { city: cityId, district: districtId }) {
             </div>
             <div class="option-side">
               <b>${money(cost)}</b>
-              <button type="button" class="btn btn-primary btn-sm" data-act="buildHere" data-type="${type.id}" data-city="${cityId}" data-district="${districtId}"${flag('disabled', !check.ok)}>
+              <button
+                type="button"
+                class="btn btn-primary btn-sm"
+                data-act="buildHere"
+                data-type="${type.id}"
+                data-city="${cityId}"
+                data-district="${districtId}"
+                data-lot="${lot ?? ''}"${flag('disabled', !check.ok)}
+              >
                 ${t('build.go')}
               </button>
               ${!check.ok && possible ? html`<span class="bad small">${t(check.error, { need: money(check.params?.need ?? 0) })}</span>` : ''}
@@ -369,15 +533,77 @@ export const mapActions = {
     app.modal('build', { city: d.city, district: d.district, wide: true });
   },
   buildHere(app, d) {
-    const result = app.cmd('build', { type: d.type, city: d.city, district: d.district });
+    const lot = d.lot === '' || d.lot == null ? null : Number(d.lot);
+    const result = app.cmd('build', { type: d.type, city: d.city, district: d.district, lot });
     if (result.ok) {
       app.ui.modal = null;
       app.openBuilding(result.building);
     }
   },
+  /** A free plot picked on the flat plan of a city. */
+  openLot(app, d) {
+    if (app.me) app.modal('build', { city: app.ui.arg, district: d.district, lot: Number(d.lot), wide: true });
+  },
+  openLotBuilding(app, d) {
+    app.openBuilding(d.id);
+  },
+  worldLots(app) {
+    app.ui.world.lots = !app.ui.world.lots;
+  },
+  worldTurn(app, d) {
+    app.world3d?.rotate(Number(d.dir));
+  },
+  worldZoom(app, d) {
+    app.world3d?.zoom(Number(d.factor));
+  },
+  worldDetails(app) {
+    app.ui.world.details = !app.ui.world.details;
+  },
+  worldInfoClose(app) {
+    app.ui.world.info = null;
+  },
+  worldFlat(app) {
+    app.prefs.map3d = false;
+    savePrefs(app.prefs);
+  },
+  worldSolid(app) {
+    app.prefs.map3d = true;
+    savePrefs(app.prefs);
+  },
   openProduct(app, d) {
     app.go('market', d.product);
   },
 };
+
+// The 3D view is a big module with its own library, so it is fetched only
+// when the map is first opened. If it cannot start (no WebGL), the flat map
+// takes over for the rest of the session.
+registerWidget('world3d', (element, app) => {
+  let world = null;
+  let gone = false;
+  element.classList.add('loading');
+  element.dataset.loading = t('world.loading');
+  app.describePick = (target) => describePick(app, target);
+  import('../../ui3d/world.js')
+    .then(({ attachWorld }) => {
+      if (gone) return;
+      world = attachWorld(element, app);
+      element.classList.remove('loading');
+    })
+    .catch((error) => {
+      console.warn('The 3D view could not start:', error);
+      app.no3d = true;
+      app.toast(t('world.unavailable'), 'warn');
+    });
+  return {
+    update(current) {
+      world?.update(current);
+    },
+    destroy() {
+      gone = true;
+      world?.detach();
+    },
+  };
+});
 
 export { usedPlots };
