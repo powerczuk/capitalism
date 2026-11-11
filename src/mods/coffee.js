@@ -6,7 +6,8 @@
 //   - a new world event with its own news text in two languages
 //
 // It is enabled in ./index.js. Remove it from that list and the game runs
-// without coffee — nothing else refers to it.
+// without coffee — nothing else refers to it. (Games saved with the mod need
+// it: loading one without it is refused with a message naming what is missing.)
 
 import { addModifier } from '../sim/world.js';
 

@@ -175,9 +175,15 @@ npm run test:e2e -- --phone
 
 ## Zapis gry
 
-Gra zapisuje się automatycznie co miesiąc w `localStorage` przeglądarki;
+Gra zapisuje się automatycznie co miesiąc i przy każdym opuszczeniu strony
+(także gdy karta w telefonie trafia w tło) w `localStorage` przeglądarki;
 z menu można też zapisać ręcznie oraz wyeksportować i zaimportować zapis jako
 tekst (np. żeby przenieść grę na inne urządzenie).
+
+Wczytywany zapis jest sprawdzany: plik uszkodzony albo zrobiony z modem,
+którego w grze nie ma, zostaje odrzucony z komunikatem i nie rusza ani
+trwającej rozgrywki, ani autozapisu. Gdyby w trakcie gry zawiodła któraś
+z zasad, zegar się zatrzymuje, a ostatni dobry autozapis zostaje nietknięty.
 
 ## Czcionki
 

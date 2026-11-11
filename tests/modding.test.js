@@ -82,7 +82,7 @@ const docsMod = {
     content.commands.register({
       id: 'donate',
       check(game, company, { amount }) {
-        if (!(amount > 0)) return fail('err.badValue');
+        if (!Number.isFinite(amount) || amount <= 0) return fail('err.badValue');
         if (company.cash < amount) return fail('err.noCash', { need: amount });
         return null;
       },
@@ -155,6 +155,7 @@ test('docs: building, goal, command, system and event examples work in a game', 
 
   const cash = me.cash;
   assert.equal(game.exec(me.id, 'donate', { amount: -5 }).error, 'err.badValue');
+  for (const amount of ['5', NaN, Infinity, null, undefined]) assert.equal(game.exec(me.id, 'donate', { amount }).error, 'err.badValue', String(amount));
   assert.equal(game.exec(me.id, 'donate', { amount: 1e12 }).error, 'err.noCash');
   assert.ok(game.exec(me.id, 'donate', { amount: 1000 }).ok);
   assert.equal(me.cash, cash - 1000);

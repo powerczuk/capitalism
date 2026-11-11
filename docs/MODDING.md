@@ -146,6 +146,11 @@ content.goals.register({
 });
 ```
 
+Cele liczone od majątku mierz funkcją `earnedWorthOf(game, company)`
+z `src/sim/accounting.js`, a nie `equityOf` — pomija ona pieniądze z emisji
+akcji, więc celu nie da się „wydrukować”. Pole `measure: 'worth'` przy
+definicji sprawia, że interfejs pokaże graczowi, ile kapitału się nie liczy.
+
 ## Balans
 
 ```js
@@ -185,7 +190,7 @@ import { fail } from '../engine/game.js';
 content.commands.register({
   id: 'donate',
   check(game, company, { amount }) {
-    if (!(amount > 0)) return fail('err.badValue');
+    if (!Number.isFinite(amount) || amount <= 0) return fail('err.badValue');
     if (company.cash < amount) return fail('err.noCash', { need: amount });
     return null;                       // null = wolno
   },
@@ -205,8 +210,25 @@ Zasady, których trzeba się trzymać:
 - losowość tylko przez `game.rng` (inaczej znika powtarzalność),
 - po dodaniu, usunięciu lub zmianie właściciela budynku wywołaj
   `game.invalidate()`,
+- **parametry polecenia przychodzą z zewnątrz** — `check` ma odrzucić
+  wszystko, czego `run` nie udźwignie. Identyfikatory sprawdzaj przez
+  `own(mapa, id)`, pozycje w tablicach przez `isIndex(tablica, i)` (oba
+  z `src/engine/util.js`), liczby przez `Number.isFinite`. Zwykłe `mapa[id]`
+  znajdzie też `"constructor"`, a `tablica["length"]` nie jest półką,
+- dostawcę półki albo surowca ustawiaj przez
+  `agreeSource(game, company, ref, productId, src)` z `src/sim/supply.js` —
+  zapamiętuje cenę uzgodnioną z obcym dostawcą, powyżej której (plus
+  `balance.wholesale.tolerance`) kupujący przestaje płacić,
 - nowe pola w stanie dodawaj tak, by stare zapisy działały (wartości domyślne
   przy odczycie albo hak `onLoad`).
+
+**Zapisy.** Przy wczytywaniu system `integrity` (`src/sim/integrity.js`)
+sprawdza budowę zapisu, a potem rozgrywa na próbę jeden miesiąc na jego
+kopii. Zapis uszkodzony jest odrzucany jako `save.invalid`, a taki, który
+odwołuje się do nieznanego produktu, receptury, budynku czy poziomu AI —
+jako `save.content`, z nazwą brakującej rzeczy. Dlatego gry zapisanej
+z modem nie da się wczytać bez niego. Własne pola waliduj we własnym haku
+`onLoad` (rzuć `new Error('save.invalid')`).
 
 ## Komputerowi gracze
 
