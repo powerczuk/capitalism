@@ -20,7 +20,7 @@ zależności uruchomieniowych; `npm install` jest potrzebne wyłącznie do
 opcjonalnej wersji jednoplikowej.
 
 ```bash
-npm test             # testy silnika, symulacji, giełdy i AI (node:test)
+npm test             # testy silnika, zasad, zapisów, giełdy i AI (node:test)
 npm run sim          # symulacja AI kontra AI — stanowisko do balansu
 npm run check        # tabela ekonomii produktów (koszty, ceny, marże)
 npm run build        # dist/wielka-hossa.html — cała gra w jednym pliku
@@ -165,8 +165,10 @@ Opcje symulatora są opisane na początku pliku `scripts/simulate.mjs`
 
 ## Test w przeglądarce
 
-`npm run test:e2e` przechodzi ścieżkę nowego gracza i wszystkie widoki
-w bezgłowym Chromium. Playwright celowo nie jest zależnością projektu:
+`npm run test:e2e` przechodzi w bezgłowym Chromium ścieżkę nowego gracza,
+wszystkie widoki, zarządzanie firmą (fabryka, dostawcy, ceny, giełda) oraz
+zabezpieczenia: zapis przy opuszczeniu strony, import zapisu i ekrany
+awaryjne. Playwright celowo nie jest zależnością projektu:
 
 ```bash
 npm i -D playwright && npx playwright install chromium
