@@ -58,15 +58,20 @@ export class Game {
     return game;
   }
 
-  /** Restore a world from `save()` output. */
-  static load(content, data) {
+  /**
+   * Restore a world from `save()` output. Systems may inspect the save in
+   * their `onLoad(game, options)` hook and throw to refuse it.
+   * `options.trial: false` skips the slow part of the built-in check (a month
+   * played on a copy) — for tools that load their own save many times over.
+   */
+  static load(content, data, options = {}) {
     const state = data?.state ?? data;
     if (!state || typeof state !== 'object' || !state.companies || !state.cities) {
       throw new Error('save.invalid');
     }
     if (state.v !== SAVE_VERSION) throw new Error('save.version');
     const game = new Game(content, clone(state));
-    for (const system of game.systems) system.onLoad?.(game);
+    for (const system of game.systems) system.onLoad?.(game, options);
     return game;
   }
 

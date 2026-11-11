@@ -43,6 +43,9 @@ test('save: a played game loads back and carries on exactly as before', () => {
   const data = copy(game);
   const loaded = Game.load(content, data);
   assert.equal(loaded.state.day, game.state.day, 'checking a save does not advance it');
+  // Tools may skip the trial month; the structure is checked all the same.
+  assert.deepEqual(Game.load(content, data, { trial: false }).state, loaded.state);
+  assert.throws(() => Game.load(content, { v: 1, state: { v: 1, day: 7, companies: {}, cities: {} } }, { trial: false }), /save\.invalid/);
   // (compared as JSON: the sign of a zero does not survive a save, and need not)
   const plain = (value) => JSON.parse(JSON.stringify(value));
   assert.deepEqual(loaded.state, plain(game.state));

@@ -228,7 +228,9 @@ kopii. Zapis uszkodzony jest odrzucany jako `save.invalid`, a taki, który
 odwołuje się do nieznanego produktu, receptury, budynku czy poziomu AI —
 jako `save.content`, z nazwą brakującej rzeczy. Dlatego gry zapisanej
 z modem nie da się wczytać bez niego. Własne pola waliduj we własnym haku
-`onLoad` (rzuć `new Error('save.invalid')`).
+`onLoad(game, options)` (rzuć `new Error('save.invalid')`). Narzędzie, które
+wczytuje własny zapis tysiące razy, może pominąć próbny miesiąc:
+`Game.load(content, save, { trial: false })`.
 
 ## Komputerowi gracze
 

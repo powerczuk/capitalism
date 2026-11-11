@@ -140,9 +140,9 @@ export function checkState(content, state) {
 export const integritySystem = {
   id: 'integrity',
   order: 1,
-  onLoad(game) {
+  onLoad(game, { trial = true } = {}) {
     checkState(game.content, game.state);
-    if (game.state.outcome) return; // a finished game is only looked at
+    if (!trial || game.state.outcome) return; // a finished game is only looked at
     try {
       const probe = new Game(game.content, clone(game.state));
       do probe.tick();
