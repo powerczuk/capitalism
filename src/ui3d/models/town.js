@@ -1675,6 +1675,81 @@ function woods(b, w, d) {
   for (const [x, z] of spots(b, w, d, 1.7, 0.3, 0.9)) if (room(15)) shrub(b, x, z, between(b, 0.16, 0.24));
 }
 
+/** One wind turbine: a tapering tower, a nacelle and three blades turned to face `ry`. */
+function turbine(b, x, z, ry, hub = 4.2, blade = 1.85) {
+  b.at(x, G, z, ry, () => {
+    b.cyl(0, 0, 0, 0.3, 0.06, C.concrete, { seg: 6 });
+    b.cyl(0, 0.06, 0, 0.12, hub - 0.06, C.white, { seg: 6, r2: 0.07, cap: false });
+    b.box(0, hub - 0.1, -0.12, 0.2, 0.2, 0.5, C.white, { ao: 1 });
+    b.cyl(0, hub - 0.06, 0.13, 0.07, 0.12, C.steel, { seg: 5 });
+    b.lamp(0, hub + 0.1, -0.24, 0.07, 0.07, 0.07, C.red); // the warning light on top
+    const phase = b.rand() * TAU;
+    for (let i = 0; i < 3; i++) {
+      const a = phase + (i * TAU) / 3;
+      const ux = Math.cos(a);
+      const uy = Math.sin(a);
+      const at = (along, across) => [ux * along - uy * across, hub + uy * along + ux * across, 0.2];
+      const r1 = at(0.1, 0.09);
+      const r2 = at(0.1, -0.09);
+      const t1 = at(blade, 0.03);
+      const t2 = at(blade, -0.03);
+      b.quad(r2, t2, t1, r1, C.white); // seen from the front…
+      b.quad(r1, t1, t2, r2, shade(C.white, 0.9)); // …and from behind
+    }
+  });
+}
+
+/** A wind farm: turbines on rough grass, a track to each and a transformer hut. */
+function windfarm(b, w, d) {
+  const room = allowance(b, 330, w, d);
+  slab(b, w, d, pick(b, [C.meadow, mix(C.meadow, C.grassLight, 0.5)]));
+  const n = clamp(Math.round((w * d) / 34), 1, 4);
+  const wind = Math.PI / 4 + between(b, -0.5, 0.5); // they all face the same wind
+  const places = spots(b, w, d, Math.sqrt((w * d) / n), 2.0, 0.5).slice(0, n); // far enough in for the blades
+  for (const [x, z] of places) {
+    if (!room(70)) break;
+    b.plane(x, G + LIFT, z + (d / 2 - z) / 2, 0.22, d / 2 - z, C.soil); // the service track from the road
+    turbine(b, x, z, wind, between(b, 3.8, 4.6));
+  }
+  if (room(30)) {
+    const hx = -w / 2 + 0.9;
+    b.box(hx, G, d / 2 - 0.8, 0.7, 0.5, 0.5, C.concrete, { top: C.roofFlat, ao: 0.9 });
+    decal(b, hx, G + 0.02, d / 2 - 0.55, 0, 0.2, 0.36, C.steelDark);
+  }
+  for (const [x, z] of spots(b, w, d, 2.6, 0.7, 0.9)) if (maybe(b, 0.5) && room(15)) shrub(b, x, z, between(b, 0.16, 0.24));
+}
+
+/** A lake: water with a sandy bank, a jetty with a boat, reeds and a few trees round it. */
+function lake(b, w, d) {
+  const room = allowance(b, 300, w, d);
+  slab(b, w, d, pick(b, [C.meadow, C.grass]));
+  const rx = w / 2 - between(b, 0.9, 1.4);
+  const rz = d / 2 - between(b, 0.9, 1.4);
+  const cx = between(b, -0.3, 0.3);
+  const cz = between(b, -0.3, 0.3);
+  disc(b, cx, G + LIFT, cz, rx + 0.28, rz + 0.28, C.sand, 12);
+  b.layer('water');
+  disc(b, cx, G + LIFT * 2, cz, rx, rz, C.water, 12);
+  disc(b, cx - rx * 0.1, G + LIFT * 3, cz + rz * 0.05, rx * 0.55, rz * 0.5, C.waterDeep, 10);
+  b.layer('solid');
+  if (room(40)) {
+    // a jetty on the street side, with a rowing boat tied to it
+    const jz = cz + rz - 0.5;
+    b.box(cx + rx * 0.3, G, jz + 0.45, 0.3, 0.09, 1.3, C.wood, { ao: 1 });
+    b.box(cx + rx * 0.3 + 0.36, G + 0.02, jz + 0.05, 0.22, 0.09, 0.55, C.red, { ao: 1 });
+  }
+  for (let i = 0; i < 14; i++) {
+    // what grows on the bank: reeds by the water, trees and bushes further out
+    const a = b.rand() * TAU;
+    const out = between(b, 0.25, 0.75);
+    const x = clamp(cx + Math.cos(a) * (rx + out), -w / 2 + 0.5, w / 2 - 0.5);
+    const z = clamp(cz + Math.sin(a) * (rz + out), -d / 2 + 0.5, d / 2 - 0.5);
+    if (i < 5 && room(6)) b.box(x, G, z, 0.12, between(b, 0.22, 0.34), 0.12, C.hay, { ao: 1 });
+    else if (maybe(b, 0.5) && room(26)) leafy(b, x, z, between(b, 0.85, 1.2));
+    else if (room(15)) shrub(b, x, z, between(b, 0.16, 0.26));
+  }
+}
+
 // ---------------------------------------------------------------------------
 
 const KINDS = {
@@ -1697,6 +1772,8 @@ const KINDS = {
   field,
   meadow,
   woods,
+  windfarm,
+  lake,
 };
 
 /**
@@ -1717,5 +1794,6 @@ export const PARCELS = Object.keys(KINDS);
 // The model viewer (dev/models.html) shows every kind as `town:<kind>`; its
 // three "levels" are simply three random variations.
 for (const kind of PARCELS) {
-  registerModel(`town:${kind}`, (b, ctx) => parcel(b, kind, ctx.lot.w, ctx.lot.d), { lot: kind === 'stadium' ? { w: 10, d: 5 } : { w: 5, d: 5 } });
+  const lot = kind === 'stadium' ? { w: 10, d: 5 } : kind === 'windfarm' || kind === 'lake' ? { w: 10, d: 10 } : { w: 5, d: 5 };
+  registerModel(`town:${kind}`, (b, ctx) => parcel(b, kind, ctx.lot.w, ctx.lot.d), { lot });
 }

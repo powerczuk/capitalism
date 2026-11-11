@@ -102,10 +102,10 @@ const WIDE = {
   outer: [['house', 6], ['park', 2], ['woods', 2]],
 };
 const SCENERY = {
-  farmland: [['field', 62], ['meadow', 22], ['woods', 16]],
-  highland: [['woods', 44], ['meadow', 26], ['hill', 30]],
-  industrial: [['meadow', 40], ['woods', 30], ['field', 20], ['hill', 10]],
-  default: [['meadow', 38], ['field', 34], ['woods', 28]],
+  farmland: [['field', 56], ['meadow', 18], ['woods', 14], ['windfarm', 7], ['lake', 5]],
+  highland: [['woods', 40], ['meadow', 20], ['hill', 26], ['lake', 9], ['windfarm', 5]],
+  industrial: [['meadow', 32], ['woods', 26], ['field', 18], ['hill', 8], ['windfarm', 11], ['lake', 5]],
+  default: [['meadow', 32], ['field', 30], ['woods', 24], ['lake', 8], ['windfarm', 6]],
 };
 
 /**

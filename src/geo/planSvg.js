@@ -27,6 +27,7 @@ const ROAD = {
 
 const PARCEL = {
   park: '#9cc27e', meadow: '#b9d093', woods: '#7fae72', field: '#d9cc85', hill: '#b4b2a6', plaza: '#d6d2c4', parking: '#a9adb0',
+  windfarm: '#c3d6a0', lake: '#9fc4d8',
   house: '#d8b99c', rowhouses: '#d1a98c', apartments: '#c9b6a2', shops: '#d6a77c', offices: '#b6c2cc', tower: '#9fb0c0',
   warehouse: '#b3b0a6', workshop: '#aaa397', townhall: '#c79a6b', church: '#c7a58c', school: '#d4b47a', hospital: '#e0d5d0', stadium: '#a7c79a',
 };
