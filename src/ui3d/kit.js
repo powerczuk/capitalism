@@ -18,6 +18,7 @@
 //   glass  large glazed surfaces (same, but shiny)
 //   glow   what lights up at night: windows, lamps, signs (drawn unlit, night only)
 //   pool   light thrown on the ground by lamps (night only, added to what is below)
+//   water  ponds, fountains, pools (smooth and slightly shiny; throws no shadow)
 //
 // Models never touch three.js objects: they only talk to a Builder, which keeps
 // them short and lets the scene decide how to batch, light and pick them.
