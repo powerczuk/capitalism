@@ -624,7 +624,10 @@ export const en = {
   'guide.lead': 'Wielka Hossa is a game about building a business: you buy or make goods, sell them in stores and compete for customers with other companies.',
   'guide.start.title': 'Getting started',
   'guide.start.text':
-    'Open the map, choose a city and build a store. A supermarket sells food and household goods, a department store sells clothing and home goods, and an electronics store sells electronics and appliances.\nOnce construction is finished, put imported goods on the shelves and start the clock. The game stays paused until you choose a speed at the top of the screen.',
+    'On the map click a city, and in it one of the lit free plots, and build a store. A supermarket sells food and household goods, a department store sells clothing and home goods, and an electronics store sells electronics and appliances.\nOnce construction is finished, put imported goods on the shelves and start the clock. The game stays paused until you choose a speed at the top of the screen.',
+  'guide.map.title': 'The map and the cities',
+  'guide.map.text':
+    'The map of the country shows the cities, the roads between them and the flags of the companies already operating there. Clicking a city takes you down to it; the arrow next to its name returns to the country.\nIn a city every building stands on a plot of its own. Yours wear your company colour and a name — click one to open its management panel. Clicking a rival building shows whose it is. A building grows with every upgrade, and stands in scaffolding while it is being built.\nDrag to move the view, zoom with the mouse wheel or a pinch, and turn it with the buttons on the bar. The list button opens the city data: districts, resources and the local market. The last button switches to the flat map — the same one that takes over when the browser cannot draw 3D.',
   'guide.stores.title': 'Stores and districts',
   'guide.stores.text':
     'Downtown brings in the most customers, but plots there are expensive and scarce. The suburbs are cheap and quieter.\nEvery shelf has limited capacity. When demand outgrows it, queues form — raise the price or upgrade the store. The next level means an extra shelf and more customers served.',
@@ -653,5 +656,5 @@ export const en = {
   'guide.rivals.text':
     'Computer rivals use exactly the same commands as you do. The Novice sells imports at a fixed markup. The Entrepreneur adjusts prices and builds its first factories. The Business shark optimises prices and builds full supply chains. The Tycoon does all of this faster and, on top of that, hunts weaker companies on the stock market.\nPersonality decides what a rival likes: retail, industry, research, low prices, brand or finance.',
   'guide.keys.title': 'Keyboard shortcuts',
-  'guide.keys.text': 'Space — pause and resume. Keys 1–4 — game speed. Esc — close a dialog or panel.',
+  'guide.keys.text': 'Space — pause and resume. Keys 1–4 — game speed. Esc — close a dialog or panel.\nWhen the 3D map has the focus: arrow keys move the view, + and − zoom, Q and E turn it.',
 };

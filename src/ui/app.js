@@ -107,6 +107,7 @@ export class App {
 
   startGame(options) {
     this.attach(Game.create(this.content, options));
+    this.ui.view = 'map'; // a new company starts by looking for a place to build
     this.ui.speed = 0;
     this.toast(t(options.player ? 'toast.started' : 'toast.spectating'), 'good');
     this.save('auto');

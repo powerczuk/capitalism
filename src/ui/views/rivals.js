@@ -98,7 +98,7 @@ export const newsView = {
   },
 };
 
-const GUIDE_SECTIONS = ['start', 'stores', 'prices', 'supply', 'factories', 'quality', 'brand', 'money', 'stocks', 'rivals', 'keys'];
+const GUIDE_SECTIONS = ['start', 'map', 'stores', 'prices', 'supply', 'factories', 'quality', 'brand', 'money', 'stocks', 'rivals', 'keys'];
 
 export const guideView = {
   id: 'guide',

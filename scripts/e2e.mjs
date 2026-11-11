@@ -91,9 +91,10 @@ async function run(name, viewport) {
   await page.click('#new-game button[type=submit]');
   await page.waitForSelector('.app');
 
-  // Build a store the way a player does: on the map of the country go down
-  // to a city, click one of the lit free plots and choose what to build.
-  await page.evaluate(() => window.hossa.go('map'));
+  // Build a store the way a player does: a new game opens on the map of the
+  // country; go down to a city, click one of the lit free plots and choose
+  // what to build.
+  check((await page.evaluate(() => window.hossa.ui.view)) === 'map', `${name}: a new game opens on the map`);
   await worldReady(page, 'country');
   const cityId = await page.evaluate(() => window.hossa.game.cities()[0].id);
   await worldClick(page, { kind: 'city', id: cityId });
@@ -506,6 +507,9 @@ async function safety() {
     await page.fill('#start-seed', seed);
     await page.click('#new-game button[type=submit]');
     await page.waitForSelector('.app');
+    // These checks are about the shell, so they run on a plain page rather than on the 3D map a new game opens with.
+    await page.evaluate(() => window.hossa.go('overview'));
+    await page.waitForFunction(() => document.querySelector('.main')?.dataset.view === 'overview');
     return page;
   };
   const autosave = (page) => page.evaluate(() => JSON.parse(localStorage.getItem('wielka-hossa:save:auto')).state);

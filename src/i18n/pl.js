@@ -624,7 +624,10 @@ export const pl = {
   'guide.lead': 'Wielka Hossa to gra o budowaniu firmy: kupujesz albo wytwarzasz towary, sprzedajesz je w sklepach i walczysz o klientów z innymi spółkami.',
   'guide.start.title': 'Jak zacząć',
   'guide.start.text':
-    'Otwórz mapę, wybierz miasto i zbuduj sklep. Supermarket sprzedaje żywność i chemię, dom towarowy — odzież i artykuły dla domu, salon elektroniki — elektronikę i AGD.\nPo zakończeniu budowy postaw na półkach towar z importu i uruchom czas. Gra jest wstrzymana, dopóki nie wybierzesz tempa u góry ekranu.',
+    'Na mapie kliknij miasto, a w nim jedną z podświetlonych wolnych działek, i zbuduj sklep. Supermarket sprzedaje żywność i chemię, dom towarowy — odzież i artykuły dla domu, salon elektroniki — elektronikę i AGD.\nPo zakończeniu budowy postaw na półkach towar z importu i uruchom czas. Gra jest wstrzymana, dopóki nie wybierzesz tempa u góry ekranu.',
+  'guide.map.title': 'Mapa i miasta',
+  'guide.map.text':
+    'Mapa kraju pokazuje miasta, drogi między nimi i flagi spółek, które już tam działają. Kliknięcie miasta przenosi do niego; strzałka przy nazwie wraca na mapę kraju.\nW mieście każdy budynek stoi na własnej działce. Twoje obiekty mają kolor Twojej spółki i podpis — kliknij, żeby otworzyć panel zarządzania. Kliknięcie obiektu rywala pokazuje, czyj jest. Budynek rośnie z każdym poziomem rozbudowy, a w trakcie budowy stoi w rusztowaniach.\nWidok przesuwasz przeciągnięciem, przybliżasz kółkiem myszy lub szczypnięciem, a obracasz przyciskami na pasku. Przycisk listy otwiera dane miasta: dzielnice, zasoby i lokalny rynek. Ostatni przycisk przełącza na mapę płaską — tę samą, która włącza się sama, gdy przeglądarka nie obsługuje grafiki 3D.',
   'guide.stores.title': 'Sklepy i dzielnice',
   'guide.stores.text':
     'Centrum daje najwięcej klientów, ale działki są tam drogie i jest ich mało. Przedmieścia są tanie i spokojniejsze.\nKażda półka ma ograniczoną przepustowość. Gdy popyt ją przerasta, pojawiają się kolejki — podnieś cenę albo rozbuduj sklep. Kolejny poziom to dodatkowa półka i więcej obsłużonych klientów.',
@@ -653,5 +656,5 @@ export const pl = {
   'guide.rivals.text':
     'Komputerowi rywale używają dokładnie tych samych poleceń co ty. Nowicjusz handluje importem po stałej marży. Przedsiębiorca dopasowuje ceny i stawia pierwsze fabryki. Rekin biznesu optymalizuje ceny i buduje pełne łańcuchy dostaw. Magnat robi to wszystko szybciej, a do tego poluje na słabsze spółki na giełdzie.\nCharakter decyduje o tym, co rywal lubi: handel, przemysł, badania, niskie ceny, markę albo finanse.',
   'guide.keys.title': 'Skróty klawiszowe',
-  'guide.keys.text': 'Spacja — pauza i wznowienie. Klawisze 1–4 — tempo gry. Esc — zamknięcie okna lub panelu.',
+  'guide.keys.text': 'Spacja — pauza i wznowienie. Klawisze 1–4 — tempo gry. Esc — zamknięcie okna lub panelu.\nGdy mapa 3D ma fokus: strzałki przesuwają widok, + i − przybliżają i oddalają, Q i E obracają.',
 };
