@@ -32,6 +32,9 @@ function hash(text) {
   return h >>> 0;
 }
 
+/** Colours of the frames round a plot: under the pointer, and the one a panel or dialog is about. */
+const MARKER = { hover: 0x1a8cff, selected: 0xffb020 };
+
 /** How far the work on a construction site has got at each of its stages (0 → 1). */
 const SITE_STEPS = [0.08, 0.2, 0.35, 0.5, 0.64, 0.78, 0.9, 0.96];
 
@@ -72,6 +75,7 @@ export class CityScene {
     this.padsKey = '';
     this.highlight = null;
     this.showLots = false;
+    this.markers = {}; // frames round what is hovered and what is selected
     this._traffic(game);
     this._smoke();
     this.sync(game);
@@ -181,6 +185,59 @@ export class CityScene {
     if (this.highlight) this.highlight.visible = this.showLots;
   }
 
+  // --- markers -------------------------------------------------------------------------------------
+
+  /**
+   * Frame a plot or a building's plot: `which` is 'hover' (what the pointer
+   * is over) or 'selected' (what a panel or dialog is about); `pick` = null
+   * takes the frame away.
+   * @returns {boolean} true when the picture changed
+   */
+  mark(which, pick) {
+    const marker = (this.markers[which] ??= { mesh: null, key: '', size: '' });
+    const lot = pick ? (pick.kind === 'building' ? this.buildings.get(pick.id)?.lot : pick.kind === 'lot' ? this.lotAt(pick.district, pick.lot) : null) : null;
+    const key = lot ? `${lot.x},${lot.z},${lot.w},${lot.d},${lot.ry}` : '';
+    if (key === marker.key) return false;
+    marker.key = key;
+    marker.pick = pick;
+    if (!lot) {
+      if (marker.mesh) marker.mesh.visible = false;
+      return true;
+    }
+    const size = `${lot.w}x${lot.d}`;
+    if (marker.size !== size) {
+      // four strips just outside the plot, lying on the pavement
+      const b = new Builder(1);
+      const t = 0.16;
+      b.plane(0, 0, lot.d / 2, lot.w + t, t, 0xffffff);
+      b.plane(0, 0, -lot.d / 2, lot.w + t, t, 0xffffff);
+      b.plane(lot.w / 2, 0, 0, t, lot.d - t, 0xffffff);
+      b.plane(-lot.w / 2, 0, 0, t, lot.d - t, 0xffffff);
+      const geometry = b.build().solid;
+      if (marker.mesh) {
+        marker.mesh.geometry.dispose();
+        marker.mesh.geometry = geometry;
+      } else {
+        const material = new MeshBasicMaterial({ color: MARKER[which] ?? 0xffffff, transparent: true, opacity: 0.95, depthWrite: false, toneMapped: false });
+        marker.mesh = new Mesh(geometry, material);
+        marker.mesh.renderOrder = which === 'selected' ? 4 : 5;
+        this.group.add(marker.mesh);
+      }
+      marker.size = size;
+    }
+    marker.mesh.position.set(lot.x, 0.1, lot.z);
+    marker.mesh.rotation.y = lot.ry;
+    marker.mesh.visible = true;
+    return true;
+  }
+
+  /** A building that is gone takes its frames with it. */
+  _dropMarks(id) {
+    for (const [which, marker] of Object.entries(this.markers)) {
+      if (marker.pick?.kind === 'building' && marker.pick.id === id) this.mark(which, null);
+    }
+  }
+
   // --- buildings ---------------------------------------------------------------------------------
 
   _removeBuilding(id) {
@@ -245,6 +302,7 @@ export class CityScene {
     }
     for (const id of [...this.buildings.keys()]) {
       if (seen.has(id)) continue;
+      this._dropMarks(id);
       this._removeBuilding(id);
       padsDirty = true;
       changed = true;
@@ -431,6 +489,7 @@ export class CityScene {
     this.carMaterial.dispose();
     this.puffMaterial.dispose();
     this.highlightMaterial?.dispose();
+    for (const marker of Object.values(this.markers)) marker.mesh?.material.dispose();
   }
 }
 

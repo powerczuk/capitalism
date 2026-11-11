@@ -373,6 +373,7 @@ async function world() {
     .waitForFunction(() => !document.querySelector('.world-tip').hidden && document.querySelector('.world-tip').textContent.length > 3, null, { timeout: 3000 })
     .then(() => true, () => false);
   check(tip, `${name}: hovering a free plot names it`);
+  check((await S(() => window.hossa.world3d.current.markers.hover?.mesh?.visible)) === true, `${name}: the plot under the pointer is framed`);
 
   // A rival's building: a card says whose it is, and no panel opens.
   await worldClick(page, { kind: 'building', id: target.rival });
@@ -417,8 +418,10 @@ async function world() {
   await worldClick(page, { kind: 'building', id: mine });
   await page.waitForSelector('.panel');
   check((await S(() => window.hossa.ui.panel.id)) === mine, `${name}: clicking the own building opens its panel`);
+  await page.waitForFunction(() => window.hossa.world3d.current.markers.selected?.mesh?.visible === true);
   await page.click('[data-act=closePanel]');
   await page.waitForFunction(() => !document.querySelector('.panel'));
+  await page.waitForFunction(() => window.hossa.world3d.current.markers.selected.mesh.visible === false);
   await page.click(`.world-label-own[data-id="${mine}"]`);
   await page.waitForSelector('.panel');
   check((await S(() => window.hossa.ui.panel.id)) === mine, `${name}: clicking the name over the own building opens its panel too`);

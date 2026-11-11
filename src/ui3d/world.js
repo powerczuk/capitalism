@@ -121,6 +121,15 @@ class World {
       scene.setShowLots(lots);
       this.stage.invalidate();
     }
+    // a frame round the building whose panel is open, or the plot being built on
+    const { panel, modal } = app.ui;
+    const selected =
+      modal?.type === 'build' && modal.lot != null && modal.city === key
+        ? { kind: 'lot', district: modal.district, lot: modal.lot }
+        : panel?.type === 'building'
+          ? { kind: 'building', id: panel.id }
+          : null;
+    if (scene.mark?.('selected', selected)) this.stage.invalidate();
     this.pace = reducedMotion() ? 0 : PACE[app.ui.speed] ?? 0;
     this.stage.setAnimating(this.pace > 0 && !app.ui.modal);
     this.refreshLabels();
@@ -178,6 +187,7 @@ class World {
   }
 
   onHover(target, at) {
+    if (this.current?.mark?.('hover', target)) this.stage.invalidate();
     const text = target ? this.app?.describePick?.(target) : null;
     if (!text) {
       this.tip.hidden = true;
