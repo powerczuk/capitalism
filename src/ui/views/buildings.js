@@ -85,7 +85,7 @@ export const companyView = {
                 ${list.map((b) => {
                   const city = game.state.cities[b.city];
                   const n = problems.get(b.id) || 0;
-                  return html`<tr class="row-link" data-act="openBuilding" data-id="${b.id}" data-key="row-${b.id}">
+                  return html`<tr class="row-link" tabindex="0" data-act="openBuilding" data-id="${b.id}" data-key="row-${b.id}">
                     <td>
                       ${buildingLabel(game, b)}
                       <div class="muted small">${L(content.buildingTypes.get(b.type).name)}${b.level > 1 ? ` · ${t('level')} ${b.level}` : ''}</div>

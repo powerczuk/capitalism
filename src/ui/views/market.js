@@ -123,7 +123,7 @@ function consumerSection(app, product) {
             ${market.cities.map(({ city, demand, by }) => {
               const here = shelves.filter((s) => s.city === city && s.stock > 0);
               const cheapest = here.reduce((m, s) => Math.min(m, s.price), Infinity);
-              return html`<tr class="row-link" data-act="openCity" data-city="${city.id}">
+              return html`<tr class="row-link" tabindex="0" data-act="openCity" data-city="${city.id}">
                 <td>${city.name}</td>
                 <td class="num">${money(demand * refPrice(game, city, product))}</td>
                 <td class="num">${price(refPrice(game, city, product))}</td>

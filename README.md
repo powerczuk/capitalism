@@ -58,6 +58,10 @@ Innowator, Dyskonter, Kreator marek, Finansista), który decyduje o tym, w co
 lubi inwestować. AI **nie oszukuje**: wydaje polecenia przez dokładnie ten sam
 interfejs co gracz i płaci te same ceny.
 
+Poziom i charakter każdego rywala (do siedmiu) wybierasz w formularzu nowej
+gry. Opcja **Tylko obserwuj** uruchamia rozgrywkę bez własnej spółki — dobry
+sposób, żeby zobaczyć, jak różne poziomy radzą sobie ze sobą.
+
 ## Struktura projektu
 
 ```

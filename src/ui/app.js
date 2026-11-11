@@ -232,10 +232,14 @@ export class App {
   }
 
   applyTheme() {
+    const root = document.documentElement;
+    // Remember the theme the page was given (a host may set it); "system"
+    // means "leave it to the page", not "erase it".
+    if (this.hostTheme === undefined) this.hostTheme = root.getAttribute('data-theme');
     const theme = this.prefs.theme;
-    if (theme === 'light' || theme === 'dark') document.documentElement.setAttribute('data-theme', theme);
-    else if (this.prefs.themeTouched) document.documentElement.removeAttribute('data-theme');
-    this.prefs.themeTouched = true;
+    if (theme === 'light' || theme === 'dark') root.setAttribute('data-theme', theme);
+    else if (this.hostTheme) root.setAttribute('data-theme', this.hostTheme);
+    else root.removeAttribute('data-theme');
   }
 
   /**
@@ -316,6 +320,15 @@ export class App {
       const el = event.target.closest('[data-submit]');
       if (el) run(el.dataset.submit, el, event);
     });
+    // Rows and map cities are made focusable with tabindex: Enter activates them.
+    this.root.addEventListener('keydown', (event) => {
+      if (event.key !== 'Enter') return;
+      const el = event.target;
+      if (!el.matches?.('[data-act][tabindex]')) return;
+      event.preventDefault();
+      run(el.dataset.act, el, event);
+    });
+    let spaceTaken = false;
     window.addEventListener('keydown', (event) => {
       const tag = event.target.tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
@@ -327,12 +340,21 @@ export class App {
         } else if (this.ui.panel) this.closePanel();
         return;
       }
-      if (!this.game || this.ui.modal) return;
+      if (!this.game || this.ui.modal || event.ctrlKey || event.metaKey || event.altKey) return;
       if (event.key === ' ') {
+        // Space is the pause key everywhere in the game, also while a button
+        // has focus (buttons still answer to Enter).
         event.preventDefault();
-        this.togglePause();
+        spaceTaken = true;
+        if (!event.repeat) this.togglePause();
       } else if (event.key >= '1' && event.key <= '4') {
         this.setSpeed(Number(event.key));
+      }
+    });
+    window.addEventListener('keyup', (event) => {
+      if (event.key === ' ' && spaceTaken) {
+        spaceTaken = false;
+        event.preventDefault(); // some browsers click the focused button on key-up
       }
     });
     window.addEventListener('beforeunload', () => {

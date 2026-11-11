@@ -138,7 +138,7 @@ function cityTable(app) {
       </thead>
       <tbody>
         ${game.cities().map(
-          (city) => html`<tr class="row-link" data-act="openCity" data-city="${city.id}">
+          (city) => html`<tr class="row-link" tabindex="0" data-act="openCity" data-city="${city.id}">
             <td>
               <b>${city.name}</b>
               <div class="muted small">${L(content.cityArchetypes.find(city.arch)?.name)}${city.port ? ` · ${t('city.port')}` : ''}</div>
@@ -237,7 +237,7 @@ function cityMarket(app, city) {
             const parts = companies.map((co) => ({ label: co.name, value: sold[co.id] || 0, color: seriesColor(co.color) }));
             const served = parts.reduce((s, p) => s + p.value, 0);
             parts.push({ label: t('local.shops'), value: Math.max(0, demand - served), color: 'var(--local)' });
-            return html`<tr class="row-link" data-act="openProduct" data-product="${product.id}">
+            return html`<tr class="row-link" tabindex="0" data-act="openProduct" data-product="${product.id}">
               <td>${productName(product)}</td>
               <td class="num">${money(value)}</td>
               <td class="wide-cell">${shareBar(parts)}</td>
