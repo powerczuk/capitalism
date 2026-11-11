@@ -103,6 +103,68 @@ Budynek produkcyjny uruchamia te receptury, które mają `building` równe jego
 `content.cityArchetypes` (strefa na mapie, zakres ludności, zamożność,
 przyrost, `port`). Gra bierze pierwsze N archetypów z rejestru.
 
+Każdy budynek stoi na numerowanej działce swojej dzielnicy (`b.lot`);
+polecenie `build` przyjmuje opcjonalne `lot`, a bez niego bierze pierwszą
+wolną. Dzielnica może powiedzieć, gdzie leży na planie miasta, polem `ring`:
+`'core'` (śródmieście), `'inner'`, `'outer'` (domyślnie), `'sector'`
+(wydzielona strefa, jak przemysłowa) albo `'country'` (duże działki za
+miastem). Plan miasta sam rezerwuje dla niej działki.
+
+## Model 3D
+
+Nowy typ budynku od razu pojawia się w świecie 3D: dostaje ogólny model
+swojego rodzaju (`kind`). Jeśli ma wyglądać jak któryś z istniejących,
+wystarczy pole `model`:
+
+```js
+content.buildingTypes.register({ id: 'drugstore', kind: 'retail', model: 'supermarket', /* … */ });
+```
+
+Własny model to funkcja, która rysuje bryły „budowniczym” z
+`src/ui3d/kit.js`. Dodaj plik w `src/ui3d/models/` i zaimportuj go w
+`src/ui3d/models/all.js` (świat 3D ładuje się osobno od reszty gry, dlatego
+modeli nie rejestruje się w `install`):
+
+```js
+// src/ui3d/models/drugstore.js
+import { PLOT, registerModel } from './index.js';
+import { C } from '../palette.js';
+import { car, tree } from './props.js';
+
+registerModel(
+  'drugstore',                               // id typu budynku
+  (b, { level, color, lot }) => {            // poziom 1–3, kolor spółki, działka { w, d }
+    b.box(0, 0, 0, lot.w - 0.2, 0.04, lot.d - 0.2, C.pavement);
+    const h = 0.6 + 0.3 * level;
+    b.block(-0.5, 0.04, -0.5, 2.8, h, 2.4, C.plasterWarm, { win: { cols: 3, rows: level, faces: 'f' } });
+    b.box(-0.5, 0.04 + h, -0.5, 3, 0.12, 2.6, color);          // attyka w kolorze spółki
+    b.lamp(-0.5, 0.2 + h, 0.82, 1.2, 0.3, 0.06, color);        // szyld — nocą świeci
+    tree(b, 1.8, -1.7);
+    car(b, 1.6, 1.4, Math.PI / 2);
+  },
+  { lot: PLOT.retail },                      // retail 5×5, industrial 10×5, rural 12×12
+);
+```
+
+- Środek działki to (0, 0, 0), `y` biegnie w górę, a ulica jest od strony
+  +z. Pozycja bryły to środek jej podstawy. Jednostka to ok. 5 m: kondygnacja
+  ma 0,6, samochód 0,9 długości.
+- Bryły: `box`, `block` (ściany z oknami), `gable` i `hip` (dachy), `cyl`,
+  `cone`, `ball`, `wedge`, `plane`; `b.at(x, y, z, obrót, () => { … })`
+  przesuwa i obraca wszystko, co narysujesz w środku. Gotowe rekwizyty
+  (drzewa, auta, płoty, silosy, kominy, parkingi) są w `models/props.js`,
+  kolory w `palette.js`.
+- Okna (`win` w `block`, `b.windows`) i `b.lamp` nocą świecą — noc w świecie
+  gry to ciemny motyw interfejsu.
+- Budynek ma trzy poziomy rozbudowy: niech każdy wyraźnie różni się od
+  poprzedniego. `b.rand()` daje powtarzalne liczby losowe, więc ten sam
+  budynek zawsze wygląda tak samo.
+- Zwrócenie `{ smoke: [[x, y, z]] }` ustawia nad kominem dym.
+- Podgląd bez gry: `dev/models.html?only=drugstore&levels=1,2,3`
+  (`&night=1` — noc); całe miasto: `dev/city.html`.
+- `npm test` sprawdza, czy każdy typ budynku ma model, czy model mieści się
+  na działce i czy nie jest zbyt ciężki.
+
 ## Wydarzenie losowe
 
 ```js

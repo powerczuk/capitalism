@@ -4,9 +4,15 @@ Przeglądarkowa gra ekonomiczna: zakładasz spółkę, otwierasz sklepy, budujes
 fabryki, farmy i kopalnie, rozwijasz marki i technologie, grasz na giełdzie —
 a komputerowi rywale robią to samo, na czterech poziomach trudności.
 
+Świat gry widać w **izometrycznym 3D**: mapa kraju z miastami, a w każdym
+mieście ulice, działki, zabudowa i Twoje obiekty, które rosną razem z firmą.
+
 Gra jest napisana w czystym JavaScripcie (moduły ES), **bez frameworka i bez
 kroku budowania**. Cała symulacja działa także poza przeglądarką, więc można ją
-testować i balansować z linii poleceń.
+testować i balansować z linii poleceń. Widok 3D rysuje
+[three.js](https://threejs.org) dołączony do repozytorium jako jeden plik;
+wszystkie modele powstają w kodzie — w grze nie ma ani jednej tekstury czy
+pliku z modelem.
 
 ## Szybki start
 
@@ -16,8 +22,8 @@ npm start            # http://localhost:5173
 
 Wystarczy dowolny serwer plików statycznych (np. `python3 -m http.server`) —
 `npm start` uruchamia tylko mały serwer z `scripts/serve.mjs`. Gra nie ma
-zależności uruchomieniowych; `npm install` jest potrzebne wyłącznie do
-opcjonalnej wersji jednoplikowej.
+zależności do instalowania; `npm install` jest potrzebne wyłącznie do
+opcjonalnej wersji jednoplikowej i do odświeżenia kopii three.js.
 
 ```bash
 npm test             # testy silnika, zasad, zapisów, giełdy i AI (node:test)
@@ -25,6 +31,7 @@ npm run sim          # symulacja AI kontra AI — stanowisko do balansu
 npm run check        # tabela ekonomii produktów (koszty, ceny, marże)
 npm run build        # dist/wielka-hossa.html — cała gra w jednym pliku
 npm run test:e2e     # test w przeglądarce (wymaga Playwrighta, patrz niżej)
+npm run vendor       # odświeża vendor/three.min.js z node_modules
 ```
 
 Wersję z `npm run build` można otworzyć prosto z dysku, wysłać mailem albo
@@ -36,8 +43,9 @@ Niczego nie trzeba budować ani konfigurować.
 
 ## Jak się gra
 
-1. Na **mapie** wybierz miasto i zbuduj sklep (supermarket, dom towarowy albo
-   salon elektroniki) w jednej z dzielnic.
+1. Na **mapie** kliknij miasto, a w nim jedną z podświetlonych wolnych
+   działek, i zbuduj sklep (supermarket, dom towarowy albo salon
+   elektroniki).
 2. Postaw towar na **półkach** — na początek z importu — i uruchom czas
    (przyciski tempa u góry, spacja, klawisze 1–4).
 3. Gdy sklepy zarabiają, zbuduj **fabrykę**, potem **farmy i kopalnie**:
@@ -47,6 +55,27 @@ Niczego nie trzeba budować ani konfigurować.
    kto zbierze ponad połowę akcji spółki, może ją przejąć.
 
 Pełniejszy opis mechanik jest w grze, w widoku **Poradnik**.
+
+### Świat 3D
+
+| Co | Jak |
+| --- | --- |
+| Przesuwanie | przeciągnij myszą lub palcem; strzałki, gdy mapa ma fokus |
+| Przybliżanie | kółko myszy, szczypnięcie, przyciski `+` `−` |
+| Obrót o ćwierć | przyciski na pasku, klawisze `Q` i `E` |
+| Wejście do miasta | kliknij miasto na mapie kraju; strzałka przy nazwie wraca |
+| Budowa | kliknij wolną działkę (przycisk działek je podświetla) |
+| Własny obiekt | kliknij go — otwiera się panel zarządzania |
+| Obiekt rywala | kliknij — karta mówi, czyj jest |
+| Dane miasta | przycisk listy otwiera szufladę z dzielnicami i rynkiem |
+
+Budynki mają kolor spółki, rosną z każdym poziomem rozbudowy, a w trakcie
+budowy stoją w rusztowaniach. Miasto zabudowuje się wraz z liczbą
+mieszkańców. Ciemny motyw interfejsu to w świecie gry noc.
+
+Przycisk mapy na pasku przełącza na **widok płaski** (2D) — ten sam, który
+włącza się sam, gdy przeglądarka nie obsługuje WebGL. Wybór jest
+zapamiętywany.
 
 ### Rywale
 
@@ -91,10 +120,21 @@ src/
     modules/            moduły zachowań (ceny, półki, zaopatrzenie,
                         inwestycje, fabryki, marketing, badania, giełda…)
   ui/                   interfejs: powłoka, widoki, wykresy, tłumaczenia
+  geo/                  plan miasta (ulice, działki, zabudowa) — czyste dane
+  ui3d/                 świat 3D
+    stage.js            renderer, kamera izometryczna, światło, sterowanie
+    kit.js palette.js   zestaw do modelowania w kodzie i paleta barw
+    models/             modele: budynki gry, zabudowa miasta, rekwizyty
+    infra.js            teren, woda, ulice, mosty, port
+    cityScene.js        miasto zsynchronizowane ze stanem gry
+    countryScene.js     mapa kraju
+    world.js            spina sceny z interfejsem
   i18n/                 teksty interfejsu (pl, en)
   mods/                 mody ładowane z grą (przykład: coffee.js)
   styles/               arkusze stylów
   setup.js              składa treść + zasady + AI + mody w jedną całość
+vendor/                 three.js (jeden plik ES, licencja MIT)
+dev/                    podglądy do pracy nad grafiką: models.html, city.html
 scripts/                serwer, symulator, tabela ekonomii, build, test e2e
 tests/                  testy node:test
 docs/MODDING.md         jak rozbudowywać grę
@@ -117,6 +157,15 @@ docs/MODDING.md         jak rozbudowywać grę
   wtyczek.
 - **Interfejs** renderuje widoki jako HTML i nakłada zmiany na żywy DOM
   (`ui/dom.js`), bez frameworka. Nie przechowuje własnej kopii stanu gry.
+- **Świat 3D nie ma własnych zasad.** Plan miasta (`geo/cityPlan.js`) wynika
+  z ziarna gry i tożsamości miasta, więc działki nie zmieniają miejsca, gdy
+  miasto rośnie; każdy budynek ma w stanie gry numer działki (`b.lot`).
+  Scena tylko rysuje stan i zamienia kliknięcia na zwykłe polecenia
+  (`build` z numerem działki, otwarcie panelu). Moduł 3D ładuje się dopiero
+  przy pierwszym otwarciu mapy, a testy i symulator go nie potrzebują.
+- **Modele to funkcje** rysujące z prostych brył (`ui3d/kit.js`): jeden model
+  to jedna siatka z kolorami w wierzchołkach, więc całe miasto to kilkanaście
+  wywołań rysowania.
 
 ## Rozbudowa
 
@@ -139,8 +188,9 @@ export const myMod = {
 ```
 
 Przewodnik z przykładami (nowe produkty i łańcuchy, budynki, wydarzenia,
-cele, systemy, polecenia, poziomy i moduły AI, widoki interfejsu) jest w
-[docs/MODDING.md](docs/MODDING.md). Działający przykład: `src/mods/coffee.js`.
+cele, systemy, polecenia, poziomy i moduły AI, widoki interfejsu, modele 3D)
+jest w [docs/MODDING.md](docs/MODDING.md). Działający przykład:
+`src/mods/coffee.js`.
 
 ## Balans
 
@@ -165,10 +215,12 @@ Opcje symulatora są opisane na początku pliku `scripts/simulate.mjs`
 
 ## Test w przeglądarce
 
-`npm run test:e2e` przechodzi w bezgłowym Chromium ścieżkę nowego gracza,
-wszystkie widoki, zarządzanie firmą (fabryka, dostawcy, ceny, giełda) oraz
-zabezpieczenia: zapis przy opuszczeniu strony, import zapisu i ekrany
-awaryjne. Playwright celowo nie jest zależnością projektu:
+`npm run test:e2e` przechodzi w bezgłowym Chromium ścieżkę nowego gracza
+(z mapy kraju do miasta, kliknięcie działki, sklep), wszystkie widoki,
+zarządzanie firmą (fabryka, dostawcy, ceny, giełda), świat 3D (narzędzia,
+klikanie, etykiety, mapa płaska bez WebGL) oraz zabezpieczenia: zapis przy
+opuszczeniu strony, import zapisu i ekrany awaryjne. Playwright celowo nie
+jest zależnością projektu:
 
 ```bash
 npm i -D playwright && npx playwright install chromium
@@ -187,8 +239,23 @@ którego w grze nie ma, zostaje odrzucony z komunikatem i nie rusza ani
 trwającej rozgrywki, ani autozapisu. Gdyby w trakcie gry zawiodła któraś
 z zasad, zegar się zatrzymuje, a ostatni dobry autozapis zostaje nietknięty.
 
-## Czcionki
+## Praca nad grafiką
+
+Dwie strony w `dev/` pokazują grafikę bez reszty gry (po `npm start`):
+
+- `dev/models.html` — modele na płycie, na wszystkich poziomach rozbudowy:
+  `?only=factory,lab&levels=1,2,3&night=1&rot=1&zoom=40`,
+- `dev/city.html` — miasto albo kraj z wygenerowanej rozgrywki:
+  `?seed=abc&city=0&days=500&night=1&lots=1` (`city=country` to mapa kraju).
+
+Grafika jest oryginalna i powstaje w całości w kodzie.
+
+## Czcionki i biblioteki
 
 Big Shoulders Display, IBM Plex Sans i IBM Plex Mono (SIL Open Font License)
 są serwowane z repozytorium — gra nie wysyła żądań do zewnętrznych serwerów.
 Szczegóły: `assets/fonts/LICENSE.md`.
+
+three.js (licencja MIT, `vendor/three.LICENSE`) leży w `vendor/` jako jeden
+zminifikowany plik zbudowany skryptem `scripts/vendor-three.mjs` z wersji
+przypiętej w `package.json`.

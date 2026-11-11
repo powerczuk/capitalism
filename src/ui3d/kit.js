@@ -17,6 +17,7 @@
 //   solid  everything opaque (one matte material, vertex colours)
 //   glass  large glazed surfaces (same, but shiny)
 //   glow   what lights up at night: windows, lamps, signs (drawn unlit, night only)
+//   pool   light thrown on the ground by lamps (night only, added to what is below)
 //
 // Models never touch three.js objects: they only talk to a Builder, which keeps
 // them short and lets the scene decide how to batch, light and pick them.
@@ -430,6 +431,24 @@ export class Builder {
       this.cur = this._layer('glow');
       this.box(x, y - 0.004, z, w + 0.012, h + 0.008, d + 0.012, glow, { ao: 1 });
       this.cur = keep;
+    }
+    return this;
+  }
+
+  /**
+   * The pool of light a lamp throws on the ground: bright in the middle,
+   * fading to nothing at the rim. It goes to the `pool` layer, which is
+   * drawn at night only and added to whatever lies underneath.
+   */
+  pool(x, y, z, r, color = 0xffc98a, seg = 10) {
+    if (!this.night) return this;
+    const layer = this._layer('pool');
+    const centre = [x, y, z];
+    for (let i = 0; i < seg; i++) {
+      const a0 = (i / seg) * TAU;
+      const a1 = ((i + 1) / seg) * TAU;
+      // rim, rim, centre, centre: the two first corners (the rim) are shaded to black
+      this.quad([x + Math.cos(a1) * r, y, z + Math.sin(a1) * r], [x + Math.cos(a0) * r, y, z + Math.sin(a0) * r], centre, centre, color, 0, layer);
     }
     return this;
   }

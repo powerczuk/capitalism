@@ -136,8 +136,8 @@ function stretch(b, r, cutStart, cutEnd) {
       for (const sx of [-0.92, 0.92]) b.box(sx, 0.04, 0, 0.1, 0.22, len + 0.3, C.stone, { ao: 1 });
       for (const sz of [-len / 4, len / 4]) b.box(0, WATER_LEVEL, sz, 1.7, -WATER_LEVEL - 0.22, 0.5, C.concreteDark, { ao: 0.8 });
       for (let s = -len / 2 + 0.6; s < len / 2; s += 1.25) b.plane(0, 0.046, s, 0.06, 0.55, C.marking);
-      lamp(b, 0.86, -len / 4, -Math.PI / 2);
-      lamp(b, -0.86, len / 4, Math.PI / 2);
+      lamp(b, 0.86, -len / 4, -Math.PI / 2, 0); // no pool of light: it would hang over the water
+      lamp(b, -0.86, len / 4, Math.PI / 2, 0);
       return;
     }
     b.box(0, 0, 0, w, 0.035, len, r.kind === 'highway' ? C.asphaltDark : C.asphalt, { ao: 1 });

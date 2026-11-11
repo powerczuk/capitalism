@@ -71,12 +71,16 @@ export function bush(b, x, z, s = 1, tint = b.rand()) {
   b.ball(x, 0.12 * s, z, 0.24 * s, tint > 0.5 ? C.leaf : C.leafDark, { seg: 5, rings: 3, sy: 0.8 });
 }
 
-/** A street lamp, 1.5 high, its arm reaching towards `ry`. */
-export function lamp(b, x, z, ry = 0) {
+/**
+ * A street lamp, 1.5 high, its arm reaching towards `ry`. At night it throws a
+ * pool of light of radius `pool` on the ground (0 = none, e.g. on a bridge).
+ */
+export function lamp(b, x, z, ry = 0, pool = 1.35) {
   b.at(x, 0, z, ry, () => {
     b.box(0, 0, 0, 0.06, 1.45, 0.06, C.steelDark, { ao: 1 });
     b.box(0, 1.42, 0.16, 0.05, 0.04, 0.36, C.steelDark, { ao: 1 });
     b.lamp(0, 1.37, 0.3, 0.13, 0.05, 0.16, C.lampWarm);
+    if (pool > 0) b.pool(0, 0.075, 0.3, pool);
   });
 }
 

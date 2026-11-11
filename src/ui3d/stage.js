@@ -10,6 +10,7 @@
 // classic 2:1 "isometric" game view. It turns in quarter steps.
 
 import {
+  AdditiveBlending,
   AmbientLight,
   Color,
   DirectionalLight,
@@ -44,6 +45,7 @@ export function createMaterials() {
     solid: new MeshStandardMaterial({ vertexColors: true, roughness: 0.94, metalness: 0 }),
     glass: new MeshStandardMaterial({ vertexColors: true, roughness: 0.22, metalness: 0.3 }),
     glow: new MeshBasicMaterial({ vertexColors: true, toneMapped: false }),
+    pool: new MeshBasicMaterial({ vertexColors: true, toneMapped: false, transparent: true, blending: AdditiveBlending, depthWrite: false, opacity: 0.6 }),
     water: new MeshStandardMaterial({ vertexColors: true, roughness: 0.28, metalness: 0.12 }),
   };
 }
@@ -51,14 +53,18 @@ export function createMaterials() {
 /**
  * Meshes for the geometries a Builder made (see kit.js `build()`), one per
  * layer, wearing the shared materials. Everything casts and takes shadows
- * except the glow layer, which lives on its own camera layer (night only).
+ * except the glow and pool layers, which live on their own camera layer
+ * (night only).
  */
 export function groupOf(geometries, materials, { shadows = true } = {}) {
   const group = new Group();
   for (const name of Object.keys(geometries)) {
     const mesh = new Mesh(geometries[name], materials[name] ?? materials.solid);
     if (name === 'glow') mesh.layers.set(GLOW_LAYER);
-    else {
+    else if (name === 'pool') {
+      mesh.layers.set(GLOW_LAYER);
+      mesh.renderOrder = 3; // after the ground it lights
+    } else {
       mesh.castShadow = shadows && name !== 'water';
       mesh.receiveShadow = true;
     }

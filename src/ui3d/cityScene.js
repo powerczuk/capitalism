@@ -157,7 +157,8 @@ export class CityScene {
     // the wash of colour that shows where one can build
     const wash = glowing.build().solid;
     if (wash) {
-      this.highlightMaterial ??= new MeshBasicMaterial({ color: 0xffc43d, transparent: true, opacity: 0.42, depthWrite: false });
+      // a blueprint blue: nothing in the landscape has this colour (ripe fields are amber)
+      this.highlightMaterial ??= new MeshBasicMaterial({ color: 0x2f9bff, transparent: true, opacity: 0.5, depthWrite: false });
       this.highlight = new Mesh(wash, this.highlightMaterial);
       this.highlight.visible = this.showLots;
       this.highlight.renderOrder = 2;
@@ -414,6 +415,7 @@ export class CityScene {
     this.clock += dt * pace;
     this._driveCars(dt * pace);
     this._puff();
+    if (this.highlight?.visible) this.highlightMaterial.opacity = 0.46 + 0.12 * Math.sin(this.clock * 2.6); // free plots breathe
   }
 
   dispose() {
