@@ -30,6 +30,10 @@ npm run test:e2e     # test w przeglądarce (wymaga Playwrighta, patrz niżej)
 Wersję z `npm run build` można otworzyć prosto z dysku, wysłać mailem albo
 wrzucić na dowolny hosting.
 
+**Hosting:** repozytorium jest gotową stroną statyczną — wystarczy opublikować
+jego katalog główny (GitHub Pages, Vercel, Netlify, zwykły serwer WWW).
+Niczego nie trzeba budować ani konfigurować.
+
 ## Jak się gra
 
 1. Na **mapie** wybierz miasto i zbuduj sklep (supermarket, dom towarowy albo

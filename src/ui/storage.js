@@ -51,15 +51,19 @@ export function savePrefs(prefs) {
 // --- saved games ---------------------------------------------------------------
 
 const slotKey = (slot) => `${PREFIX}:save:${slot}`;
+const metaKey = (slot) => `${PREFIX}:save:${slot}:meta`;
+
+/** Save text of a game: the state is serialised directly, without an intermediate copy. */
+function serialise(game) {
+  const { state } = game;
+  return JSON.stringify({ v: state.v, day: state.day, state, meta: { company: game.human?.name ?? '', savedAt: Date.now() } });
+}
 
 /** @returns {boolean} false when the browser refused to store the save permanently */
 export function saveGame(game, slot = 'auto') {
-  const human = game.human;
-  const data = {
-    ...game.save(),
-    meta: { company: human?.name ?? '', savedAt: Date.now() },
-  };
-  return write(slotKey(slot), JSON.stringify(data));
+  // A tiny companion entry lets menus describe the save without parsing all of it.
+  write(metaKey(slot), JSON.stringify({ day: game.state.day, company: game.human?.name ?? '', savedAt: Date.now() }));
+  return write(slotKey(slot), serialise(game));
 }
 
 export function loadSaved(slot = 'auto') {
@@ -72,8 +76,15 @@ export function loadSaved(slot = 'auto') {
   }
 }
 
-/** Light-weight description of a save for menus (no full parse of the state needed by callers). */
+/** Short description of a save for menus: { day, company, savedAt } or null. */
 export function savedInfo(slot = 'auto') {
+  if (read(slotKey(slot)) == null) return null;
+  try {
+    const meta = JSON.parse(read(metaKey(slot)) || 'null');
+    if (meta && typeof meta.day === 'number') return meta;
+  } catch {
+    /* fall through to the full save */
+  }
   const data = loadSaved(slot);
   if (!data?.state) return null;
   return { day: data.day ?? data.state.day, company: data.meta?.company ?? '', savedAt: data.meta?.savedAt ?? 0 };
@@ -81,11 +92,12 @@ export function savedInfo(slot = 'auto') {
 
 export function deleteSave(slot = 'auto') {
   remove(slotKey(slot));
+  remove(metaKey(slot));
 }
 
 /** Text form of a save for copying between devices. */
 export function exportText(game) {
-  return JSON.stringify({ ...game.save(), meta: { company: game.human?.name ?? '', savedAt: Date.now() } });
+  return serialise(game);
 }
 
 export function parseImport(text) {
