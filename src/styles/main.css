@@ -2348,6 +2348,14 @@ dd .meter {
   height: 100%;
 }
 
+.crash h1 {
+  margin-bottom: 8px;
+}
+
+.crash .form-row {
+  margin: 14px 0 18px;
+}
+
 .crash pre {
   white-space: pre-wrap;
   font: 12px var(--font-mono);

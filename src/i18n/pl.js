@@ -554,7 +554,7 @@ export const pl = {
   'diag.cashNegative': 'Konto jest na minusie — bank nalicza karne odsetki.',
   'diag.distress': 'Spółce grozi upadłość. Dni na uzdrowienie finansów: {days}.',
   'diag.overCredit': 'Zadłużenie przekracza limit kredytowy.',
-  'diag.raider': '{company} ma już {pct}% twoich akcji. Skup akcje własne, żeby obronić spółkę.',
+  'diag.raider': '{company} ma już {pct}% twoich akcji. Obroni cię tylko taki skup akcji własnych, który da założycielowi ponad połowę — mniejszy powiększy także ten pakiet.',
   'diag.noBuildings': 'Nie masz jeszcze żadnego obiektu. Wybierz miasto na mapie i zbuduj pierwszy sklep.',
   'diag.emptyShelves': '{building}: wolne półki ({n}).',
   'diag.shelfNoSource': '{building}: {product} nie ma dostawcy.',

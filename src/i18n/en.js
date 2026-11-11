@@ -554,7 +554,7 @@ export const en = {
   'diag.cashNegative': 'The account is overdrawn — the bank is charging penalty interest.',
   'diag.distress': 'The company faces bankruptcy. Days left to restore its finances: {days}.',
   'diag.overCredit': 'Debt exceeds the credit limit.',
-  'diag.raider': '{company} already holds {pct}% of your shares. Buy back your own shares to defend the company.',
+  'diag.raider': '{company} already holds {pct}% of your shares. Only a buyback that lifts the founder past one half defends you — a smaller one enlarges that stake too.',
   'diag.noBuildings': 'You have no buildings yet. Choose a city on the map and build your first store.',
   'diag.emptyShelves': '{building}: empty shelves ({n}).',
   'diag.shelfNoSource': '{building}: no supplier for {product}.',
