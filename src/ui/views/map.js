@@ -588,6 +588,8 @@ registerWidget('world3d', (element, app) => {
     .then(({ attachWorld }) => {
       if (gone) return;
       world = attachWorld(element, app);
+      world.stage.canvas.setAttribute('role', 'application');
+      world.stage.canvas.setAttribute('aria-label', t('world.canvas'));
       element.classList.remove('loading');
     })
     .catch((error) => {

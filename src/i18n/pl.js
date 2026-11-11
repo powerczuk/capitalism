@@ -184,6 +184,7 @@ export const pl = {
   'map.title': 'Mapa kraju',
   'map.lead': 'Kliknij miasto, aby zobaczyć dzielnice, zasoby i lokalny rynek. Kolorowe punkty pokazują, które spółki już tam działają.',
   'world.tools': 'Widok mapy',
+  'world.canvas': 'Mapa 3D. Strzałki przesuwają widok, plus i minus przybliżają i oddalają, Q i E obracają. Miasta i własne budynki są też przyciskami z nazwą.',
   'world.lots': 'Pokaż wolne działki',
   'world.turnLeft': 'Obróć w lewo',
   'world.turnRight': 'Obróć w prawo',

@@ -184,6 +184,7 @@ export const en = {
   'map.title': 'Country map',
   'map.lead': 'Click a city to see its districts, resources and local market. The coloured dots show which companies already operate there.',
   'world.tools': 'Map view',
+  'world.canvas': '3D map. Arrow keys move the view, plus and minus zoom, Q and E turn it. Cities and your own buildings are also buttons carrying their names.',
   'world.lots': 'Show free plots',
   'world.turnLeft': 'Turn left',
   'world.turnRight': 'Turn right',
