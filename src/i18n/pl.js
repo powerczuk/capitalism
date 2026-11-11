@@ -547,6 +547,8 @@ export const pl = {
   'err.issueTooBig': 'Jednorazowo można wyemitować najwyżej jedną czwartą akcji.',
   'err.issueCooldown': 'Od ostatniej emisji musi minąć pół roku.',
   'err.saveInvalid': 'Nie udało się odczytać zapisu.',
+  'err.badLot': 'Tej działki nie ma w tej dzielnicy.',
+  'err.lotTaken': 'Ta działka jest już zajęta.',
   'err.saveVersion': 'Ten zapis pochodzi z innej wersji gry.',
   'err.saveContent': 'Ten zapis korzysta z treści, której nie ma w tej grze („{id}”) — pewnie z innego zestawu modów.',
 

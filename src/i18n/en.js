@@ -547,6 +547,8 @@ export const en = {
   'err.issueTooBig': 'No more than a quarter of the shares can be issued at one time.',
   'err.issueCooldown': 'Six months must pass after the last issue.',
   'err.saveInvalid': 'The save could not be read.',
+  'err.badLot': 'There is no such plot in this district.',
+  'err.lotTaken': 'This plot is already taken.',
   'err.saveVersion': 'This save comes from a different version of the game.',
   'err.saveContent': 'This save uses content this game does not have (“{id}”) — probably a different set of mods.',
 

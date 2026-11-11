@@ -103,6 +103,7 @@ export function checkState(content, state) {
     need(Number.isInteger(b.level) && b.level >= 1 && isNumber(b.ready) && isNumber(b.up) && isNumber(b.cost) && isNumber(b.book), where);
     need(isObject(b.m) && isNumber(b.m.rev) && isNumber(b.m.cogs) && isNumber(b.m.opex) && Array.isArray(b.hist), where);
     need(b.name == null || typeof b.name === 'string', where);
+    need(b.lot == null || (Number.isInteger(b.lot) && b.lot >= 0), where);
     need(Array.isArray(b.slots) === (b.kind === 'retail') && Array.isArray(b.lines) === (b.kind === 'producer') && Array.isArray(b.labs) === (b.kind === 'research'), where);
     for (const slot of b.slots || []) {
       if (slot == null) continue;

@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>City viewer — Wielka Hossa</title>
+    <style>
+      html, body { margin: 0; height: 100%; background: #cfe0e6; font: 13px system-ui, sans-serif; }
+      #stage { position: fixed; inset: 0; }
+      #stage canvas { display: block; width: 100%; height: 100%; outline: none; }
+      #help { position: fixed; left: 12px; bottom: 10px; padding: 6px 10px; border-radius: 6px; background: rgba(255, 255, 255, 0.82); color: #223; }
+    </style>
+  </head>
+  <body>
+    <!--
+      One city of a generated game in the 3D view, without the game's interface.
+      A tool for working on the city scene:
+
+        npm start   →   http://localhost:5173/dev/city.html
+
+      ?seed=abc       the game's seed            ?city=0      which city (0–5)
+      ?days=500       let the rivals build first  ?night=1     night lighting
+      ?rot=1          camera turned (0–3)         ?zoom=60     world units in the height of the window
+      ?x=10&z=-20     what the camera looks at    ?lots=1      light up the free plots
+      ?still=1        no traffic or smoke
+    -->
+    <div id="stage"></div>
+    <div id="help"></div>
+    <script type="module">
+      import { createContent, Game } from '../src/setup.js';
+      import { Stage } from '../src/ui3d/stage.js';
+      import { CityScene } from '../src/ui3d/cityScene.js';
+
+      const q = new URLSearchParams(location.search);
+      const num = (name, fallback) => (q.has(name) ? Number(q.get(name)) : fallback);
+      const content = createContent();
+      const game = Game.create(content, {
+        seed: q.get('seed') || 'city',
+        cityCount: 6,
+        player: null,
+        rivals: ['tycoon', 'shark', 'manager', 'novice', 'shark', 'tycoon'].map((level) => ({ level })),
+      });
+      game.run(num('days', 500));
+      const city = game.cities()[num('city', 0)];
+
+      const stage = new Stage(document.getElementById('stage'));
+      const t0 = performance.now();
+      const scene = new CityScene({ content, game, city, materials: stage.materials });
+      const built = Math.round(performance.now() - t0);
+      if (q.get('night')) stage.setMode('night');
+      if (q.get('lots')) scene.setShowLots(true);
+      stage.show(scene.group, {
+        pickables: scene.pickables,
+        bounds: scene.bounds,
+        view: { ...scene.view, x: num('x', scene.view.x), z: num('z', scene.view.z), zoom: num('zoom', scene.view.zoom), rot: num('rot', 0) },
+      });
+      const still = !!q.get('still');
+      stage.setAnimating(!still);
+      stage.on('frame', (dt) => scene.update(dt, still ? 0 : 1));
+      stage.on('pick', (target) => (document.getElementById('help').textContent = JSON.stringify(target)));
+      stage.renderNow();
+
+      let triangles = 0;
+      scene.group.traverse((node) => {
+        if (node.geometry?.index) triangles += (node.geometry.index.count / 3) * (node.count ?? 1);
+      });
+      const info = { city: city.name, arch: city.arch, pop: city.pop, buildings: scene.buildings.size, built, triangles: Math.round(triangles), calls: stage.renderer.info.render.calls };
+      document.getElementById('help').textContent = `${info.city} · ${info.arch} · ${info.buildings} buildings · ${info.triangles} triangles · ${info.calls} draw calls · built in ${built} ms`;
+      window.__stage = stage;
+      window.__scene = scene;
+      window.__game = game;
+      window.__info = info;
+      console.log(JSON.stringify(info));
+    </script>
+  </body>
+</html>

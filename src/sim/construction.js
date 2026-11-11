@@ -2,7 +2,7 @@
 
 import { fail } from '../engine/game.js';
 import { EPS, own } from '../engine/util.js';
-import { freePlots, landIndex, resourceQuality, wageIndex } from './world.js';
+import { freePlots, landIndex, plotsOf, resourceQuality, wageIndex } from './world.js';
 
 export const slotCount = (type, level) => (type.slots ?? 0) + (level - 1) * (type.slotsPerLevel ?? 1);
 export const lineCount = (type, level) => (type.lines ?? 0) + (level - 1) * (type.linesPerLevel ?? 1);
@@ -55,6 +55,48 @@ function resize(list, n) {
   while (list.length < n) list.push(null);
 }
 
+// ---------------------------------------------------------------------------
+// Plots
+//
+// Every district of a city has numbered building plots: 0 is the best
+// location, higher numbers lie further out. A building remembers its number
+// (`b.lot`); where that plot is on the ground is the business of whoever
+// draws the city (see src/geo/cityPlan.js), not of the rules.
+// ---------------------------------------------------------------------------
+
+/** Plot numbers taken in a district of a city. */
+export function takenLots(game, cityId, districtId) {
+  const taken = new Set();
+  for (const b of game.buildingsIn(cityId)) if (b.district === districtId && Number.isInteger(b.lot)) taken.add(b.lot);
+  return taken;
+}
+
+/** The lowest free plot number of a district. */
+export function firstFreeLot(game, cityId, districtId) {
+  const taken = takenLots(game, cityId, districtId);
+  let lot = 0;
+  while (taken.has(lot)) lot += 1;
+  return lot;
+}
+
+/** Number the plots of buildings that have none (games saved before plots were numbered). */
+export function ensureLots(game) {
+  const missing = Object.values(game.state.buildings).filter((b) => !Number.isInteger(b.lot));
+  if (!missing.length) return;
+  const order = (b) => Number(String(b.id).replace(/\D+/g, '')) || 0;
+  missing.sort((a, b) => a.built - b.built || order(a) - order(b));
+  const byDistrict = new Map();
+  for (const b of missing) {
+    const key = `${b.city}|${b.district}`;
+    let taken = byDistrict.get(key);
+    if (!taken) byDistrict.set(key, (taken = takenLots(game, b.city, b.district)));
+    let lot = 0;
+    while (taken.has(lot)) lot += 1;
+    b.lot = lot;
+    taken.add(lot);
+  }
+}
+
 function ownBuilding(game, co, id) {
   const b = own(game.state.buildings, id);
   return b && b.co === co.id ? b : null;
@@ -69,8 +111,8 @@ export { ownBuilding };
 export const constructionCommands = [
   {
     id: 'build',
-    /** params: { type, city, district } */
-    check(game, co, { type: typeId, city: cityId, district }) {
+    /** params: { type, city, district, lot? } — `lot` picks the plot; left out, the best free one is taken */
+    check(game, co, { type: typeId, city: cityId, district, lot }) {
       const { content, state } = game;
       const type = content.buildingTypes.find(typeId);
       if (!type) return fail('err.unknownBuilding');
@@ -78,17 +120,22 @@ export const constructionCommands = [
       if (!city) return fail('err.unknownCity');
       if (!type.districts.includes(district)) return fail('err.wrongDistrict');
       if (freePlots(game, city, district) <= 0) return fail('err.noPlots');
+      if (lot != null) {
+        if (!Number.isInteger(lot) || lot < 0 || lot >= plotsOf(content, city, district)) return fail('err.badLot');
+        if (takenLots(game, city.id, district).has(lot)) return fail('err.lotTaken');
+      }
       if (type.kind === 'producer' && !cityHasResourceFor(game, type, city)) return fail('err.noResource');
       const cost = buildCost(game, type, city, district);
       if (co.cash < cost) return fail('err.noCash', { need: cost });
       return null;
     },
-    run(game, co, { type: typeId, city: cityId, district }) {
+    run(game, co, { type: typeId, city: cityId, district, lot }) {
       const { content, state } = game;
       const type = content.buildingTypes.get(typeId);
       const city = state.cities[cityId];
       const cost = buildCost(game, type, city, district);
       co.cash -= cost;
+      ensureLots(game);
       const b = {
         id: game.newId('b'),
         type: type.id,
@@ -96,6 +143,7 @@ export const constructionCommands = [
         co: co.id,
         city: city.id,
         district,
+        lot: lot ?? firstFreeLot(game, city.id, district), // plot number within the district
         level: 1,
         name: null, // null = default name "<type> <city> #no"
         no: ++co.seq,
@@ -186,6 +234,9 @@ export const constructionCommands = [
 export const constructionSystem = {
   id: 'construction',
   order: 30,
+  onLoad(game) {
+    ensureLots(game);
+  },
   daily(game) {
     const { state, content } = game;
     for (const b of Object.values(state.buildings)) {

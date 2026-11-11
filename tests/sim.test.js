@@ -6,7 +6,7 @@ import { assetsOf, creditLimit, equityOf } from '../src/sim/accounting.js';
 import { buildCost, upgradeCost } from '../src/sim/construction.js';
 import { diagnose } from '../src/sim/diagnostics.js';
 import { importPrice, lineSrc, listSources, quote, SUP } from '../src/sim/supply.js';
-import { freePlots } from '../src/sim/world.js';
+import { freePlots, plotsOf } from '../src/sim/world.js';
 import { goalStatus } from '../src/sim/goals.js';
 
 const content = createContent();
@@ -61,6 +61,34 @@ test('build: validation', () => {
   while (game.exec(me.id, 'build', { type: 'supermarket', city: city.id, district: 'center' }).ok) n++;
   assert.ok(n > 0);
   assert.equal(fail({ type: 'supermarket', city: city.id, district: 'center' }), 'err.noPlots');
+});
+
+test('build: every building gets a numbered plot of its district', () => {
+  const { game, me, city } = newGame();
+  me.cash = 1e9;
+  const build = (params) => game.exec(me.id, 'build', { type: 'supermarket', city: city.id, district: 'residential', ...params });
+  const lotOf = (result) => game.state.buildings[result.building].lot;
+  const plots = plotsOf(content, city, 'residential');
+  assert.equal(lotOf(build()), 0, 'the best free plot by default');
+  assert.equal(lotOf(build({ lot: 3 })), 3, 'or the one that was asked for');
+  assert.equal(build({ lot: 3 }).error, 'err.lotTaken');
+  for (const lot of [-1, 1.5, plots, '2', NaN]) assert.equal(build({ lot }).error, 'err.badLot', String(lot));
+  const second = build();
+  assert.equal(lotOf(second), 1);
+  // Another district numbers its plots separately.
+  assert.equal(lotOf(game.exec(me.id, 'build', { type: 'supermarket', city: city.id, district: 'center' })), 0);
+  // A demolished building frees its plot.
+  assert.ok(game.exec(me.id, 'demolish', { building: second.building }).ok);
+  assert.equal(lotOf(build()), 1);
+  // Games saved before plots were numbered get them on loading, oldest building first.
+  const data = JSON.parse(JSON.stringify(game.save()));
+  for (const b of Object.values(data.state.buildings)) delete b.lot;
+  const loaded = Game.load(content, data);
+  const lots = Object.values(loaded.state.buildings)
+    .filter((b) => b.district === 'residential')
+    .map((b) => b.lot)
+    .sort();
+  assert.deepEqual(lots, [0, 1, 2]);
 });
 
 test('retail: shelves validate products and sell once the store opens', () => {

@@ -12,9 +12,8 @@ import { shade } from '../kit.js';
 const CAR_COLORS = [0xd9d6cf, 0x3c4650, 0xb7392f, 0x2f5e9e, 0x8a8f95, 0xe2e4e6, 0x25292e, 0x4d7a57, 0xc9a23a, 0x7a4a36];
 const HALF = Math.PI / 2;
 
-/** A passenger car, 0.9 long. `tint` picks the paint (any number). */
-export function car(b, x, z, ry = 0, tint = b.rand() * 97) {
-  const paint = CAR_COLORS[Math.floor(Math.abs(tint)) % CAR_COLORS.length];
+/** A passenger car, 0.9 long. `tint` picks the paint (any number); `paint` sets it outright. */
+export function car(b, x, z, ry = 0, tint = b.rand() * 97, paint = CAR_COLORS[Math.floor(Math.abs(tint)) % CAR_COLORS.length]) {
   b.at(x, 0, z, ry, () => {
     b.box(0, 0.07, 0, 0.42, 0.15, 0.9, paint, { ao: 0.8 });
     b.box(0, 0.22, -0.04, 0.38, 0.13, 0.46, shade(paint, 0.92), { ao: 1 });
@@ -186,4 +185,4 @@ export function dock(b, x, z, ry = 0, w = 0.7) {
   });
 }
 
-export { HALF };
+export { CAR_COLORS, HALF };

@@ -57,7 +57,7 @@ test('commands: hostile parameters are refused without a trace', () => {
   const { game, me, rival, city, store, factory, lab } = world();
   const own = lineSrc(factory, 0);
   const baselines = {
-    build: { type: 'supermarket', city: city.id, district: 'residential' },
+    build: { type: 'supermarket', city: city.id, district: 'residential', lot: 3 },
     upgrade: { building: store },
     demolish: { building: lab },
     rename: { building: store, name: 'Sklep' },
