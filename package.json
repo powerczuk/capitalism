@@ -10,12 +10,14 @@
     "test:e2e": "node scripts/e2e.mjs",
     "sim": "node scripts/simulate.mjs",
     "check": "node scripts/check-content.mjs",
-    "build": "node scripts/build.mjs"
+    "build": "node scripts/build.mjs",
+    "vendor": "node scripts/vendor-three.mjs"
   },
   "engines": {
     "node": ">=20"
   },
   "devDependencies": {
-    "esbuild": "^0.28.2"
+    "esbuild": "^0.28.2",
+    "three": "0.187.0"
   }
 }
