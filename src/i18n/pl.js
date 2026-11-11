@@ -240,6 +240,8 @@ export const pl = {
   'shelf.auto.hint': 'Asystent co tydzień ustawia cenę, która daje największy zysk.',
   'shelf.ref': 'zwyczajowa {price}',
   'shelf.rival': 'najlepszy rywal {price}',
+  'shelf.advice': 'Asystent ustawiłby {price} — przy tej cenie półka zarabia najwięcej.',
+  'shelf.advice.use': 'Ustaw',
   'shelf.stock': 'Zapas',
   'shelf.unitCost': 'koszt {cost}',
   'shelf.margin': 'marża {pct}',

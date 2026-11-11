@@ -11,6 +11,7 @@ import { upgradeCost, upkeepOf } from '../../sim/construction.js';
 import { brandOf, marketSnapshot, slotCapacity } from '../../sim/market.js';
 import { importPrice, lineCustomers, lineSrc, parseSrc, quote, SUP, techOf } from '../../sim/supply.js';
 import { researchGain } from '../../sim/research.js';
+import { shelfPrice } from '../../ai/analysis.js';
 import { diagText } from './overview.js';
 
 const KIND_ORDER = ['retail', 'producer', 'research'];
@@ -150,6 +151,13 @@ function shelfCard(app, b, slot, index) {
   const brand = brandOf(game, slot.by, slot.product);
   const margin = slot.uc > 0 ? 1 - slot.uc / slot.price : null;
   const quality = slot.q || 0;
+  // What the pricing assistant would charge — shown as a hint on manual shelves.
+  let advice = null;
+  if (!slot.auto && game.isReady(b) && slot.qty > 0) {
+    const best = shelfPrice(game, me, b, index, { mode: 'optimize' });
+    const suggested = best ? Math.round(best.price * 100) / 100 : null;
+    if (suggested && Math.abs(suggested / slot.price - 1) > 0.02) advice = suggested;
+  }
   return html`<li class="unit" data-key="slot-${index}">
     <div class="unit-head">
       <b>${productName(product)}</b>
@@ -173,6 +181,12 @@ function shelfCard(app, b, slot, index) {
         ${t('shelf.ref', { price: price(snap.ref) })}${bestRival ? html` · ${t('shelf.rival', { price: price(bestRival.price) })}` : ''}
       </span>
     </div>
+    ${advice
+      ? html`<div class="price-advice">
+          <span>${t('shelf.advice', { price: price(advice) })}</span>
+          <button type="button" class="btn btn-sm" data-act="slotPriceSet" data-building="${b.id}" data-slot="${index}" data-price="${advice}">${t('shelf.advice.use')}</button>
+        </div>`
+      : ''}
 
     <dl class="facts-grid">
       <div>
@@ -463,6 +477,9 @@ export const buildingActions = {
     if (!slot) return;
     const next = Math.max(0.01, Math.round(slot.price * (1 + Number(d.dir) * 0.03) * 100) / 100);
     app.cmd('setSlotPrice', { building: d.building, slot: Number(d.slot), price: next === slot.price ? next + Number(d.dir) * 0.01 : next });
+  },
+  slotPriceSet(app, d) {
+    app.cmd('setSlotPrice', { building: d.building, slot: Number(d.slot), price: Number(d.price) });
   },
   slotAuto(app, d, el) {
     app.cmd('setSlotAuto', { building: d.building, slot: Number(d.slot), auto: el.checked });
