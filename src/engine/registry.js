@@ -22,9 +22,12 @@ export class Registry {
     if (this.map.has(def.id) && !override) {
       throw new Error(`${this.kind} "${def.id}" is already registered (pass { override: true } to replace it)`);
     }
-    this.map.set(def.id, def);
+    // Each registry keeps its own copy, so deriving or patching fields in one
+    // Content never leaks into another built from the same source objects.
+    const own = { ...def };
+    this.map.set(own.id, own);
     this._list = null;
-    return def;
+    return own;
   }
 
   registerAll(defs, options) {

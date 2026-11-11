@@ -1,4 +1,7 @@
-// Mods that are loaded with the game. Add your plugin to this list.
-// See docs/MODDING.md and the example in ./coffee.js.
+// Mods loaded with the game. To add yours: write a plugin object
+// `{ id, install(content) {...} }` (see ./coffee.js and docs/MODDING.md),
+// import it here and put it on the list.
 
-export const MODS = [];
+import { coffeeMod } from './coffee.js';
+
+export const MODS = [coffeeMod];

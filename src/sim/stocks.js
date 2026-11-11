@@ -14,12 +14,14 @@ export function fundamentalValue(game, co) {
   const S = game.content.balance.stock;
   const book = equityOf(game, co) / co.shares.total;
   if (book <= 0) return 0.05;
-  // A company without a track record trades at book value.
+  // A company without a track record trades at book value; earnings gain
+  // weight as the history grows to two years.
   if (co.reports.length < 3) return book;
   const eps = trailingProfit(co) / co.shares.total;
   const pe = S.pe * game.state.economy.index ** 2;
   const earnings = Math.max(-0.5 * book, eps * pe);
-  const value = Math.max(0.25 * book, 0.55 * book + 0.45 * earnings);
+  const weight = 0.45 * Math.min(1, co.reports.length / 24);
+  const value = Math.max(0.25 * book, (1 - weight) * book + weight * earnings);
   return value * (1 + Math.min(0.15, co.div * 0.3));
 }
 

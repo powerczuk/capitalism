@@ -193,6 +193,23 @@ export function listSources(game, buyer, cityId, productId) {
   return out.sort((a, b) => a.unitCost - b.unitCost);
 }
 
+/**
+ * Who draws from a production line: number of shelves/inputs of the owner
+ * and of other companies that name it as their source.
+ */
+export function lineCustomers(game, src) {
+  const parsed = parseSrc(src);
+  const owner = parsed?.kind === 'line' ? game.state.buildings[parsed.building]?.co : null;
+  const out = { own: 0, outside: 0 };
+  for (const b of Object.values(game.state.buildings)) {
+    const refs = b.slots ? b.slots : b.lines ? b.lines.flatMap((line) => (line ? Object.values(line.inputs) : [])) : [];
+    for (const ref of refs) {
+      if (ref && ref.src === src) out[b.co === owner ? 'own' : 'outside'] += 1;
+    }
+  }
+  return out;
+}
+
 /** A sensible default source: own production if any, otherwise the cheapest offer. */
 export function defaultSource(game, buyer, cityId, productId) {
   const sources = listSources(game, buyer, cityId, productId);
